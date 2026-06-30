@@ -113,7 +113,7 @@ function formatRecipe(recipe, sourceUrl) {
   const steps = rawSteps.map(stepText => buildStepParts(stepText, ingredients));
 
   return {
-    title: recipe.name || 'Untitled Recipe',
+    title: decodeEntities(recipe.name || 'Untitled Recipe'),
     sourceUrl,
     sourceName: new URL(sourceUrl).hostname.replace('www.', ''),
     image: extractImage(recipe.image),
@@ -155,7 +155,7 @@ function normalizeIngredients(rawList) {
   const UNIT_PATTERN = /^(cups?|tablespoons?|tbsp\.?|teaspoons?|tsp\.?|ounces?|oz\.?|pounds?|lbs?\.?|grams?|g|kilograms?|kg|milliliters?|ml|liters?|l|cloves?|slices?|cans?|packages?|pinch(es)?|stick(s)?|large|medium|small)$/i;
 
   return rawList.map((raw, idx) => {
-    const text = String(raw).trim();
+    const text = decodeEntities(String(raw).trim());
 
     // Grab a leading numeric quantity (handles "1", "1 1/2", "1/2", "1-2")
     const qtyMatch = text.match(/^([\d]+(?:\s+\d+\/\d+|\.\d+|\/\d+)?(?:\s*[-–]\s*\d+(?:\s+\d+\/\d+|\.\d+|\/\d+)?)?)\s*/);
@@ -192,7 +192,7 @@ function normalizeInstructions(instructions) {
   let rawSteps = [];
 
   if (typeof instructions === 'string') {
-    rawSteps = instructions
+    rawSteps = decodeEntities(instructions)
       .split(/\n+|(?:\d+\.\s)/)
       .map(s => s.trim())
       .filter(Boolean);
@@ -200,11 +200,11 @@ function normalizeInstructions(instructions) {
     const steps = [];
     for (const item of instructions) {
       if (typeof item === 'string') {
-        steps.push(item.trim());
+        steps.push(decodeEntities(item.trim()));
       } else if (item['@type'] === 'HowToSection' && Array.isArray(item.itemListElement)) {
         steps.push(...normalizeInstructions(item.itemListElement));
       } else if (item.text) {
-        steps.push(item.text.trim());
+        steps.push(decodeEntities(item.text.trim()));
       }
     }
     rawSteps = steps.filter(Boolean);
@@ -346,4 +346,31 @@ function isValidUrl(str) {
   } catch {
     return false;
   }
+}
+
+// Recipe text from JSON-LD often contains HTML entities (&#8220; &amp; etc.)
+// and stray HTML tags. Decode/strip them so steps read as clean plain text.
+function decodeEntities(str) {
+  if (!str) return str;
+  return str
+    // strip any leftover HTML tags (e.g. <a>, <strong>) some sites embed in steps
+    .replace(/<[^>]+>/g, '')
+    // numeric entities: decimal (&#8220;) and hex (&#x201C;)
+    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(parseInt(n, 10)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, n) => String.fromCodePoint(parseInt(n, 16)))
+    // common named entities
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'")
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&hellip;/g, '…')
+    .replace(/&mdash;/g, '—')
+    .replace(/&ndash;/g, '–')
+    .replace(/&rsquo;|&lsquo;/g, "'")
+    .replace(/&rdquo;|&ldquo;/g, '"')
+    // collapse any double spaces left behind
+    .replace(/\s{2,}/g, ' ')
+    .trim();
 }
