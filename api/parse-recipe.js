@@ -189,16 +189,14 @@ function normalizeIngredients(rawList) {
 /* ----- Instructions: handle string / HowToStep[] / HowToSection[] ----- */
 function normalizeInstructions(instructions) {
   if (!instructions) return [];
+  let rawSteps = [];
 
   if (typeof instructions === 'string') {
-    // Some sites just dump one big string — split on line breaks or numbered steps
-    return instructions
+    rawSteps = instructions
       .split(/\n+|(?:\d+\.\s)/)
       .map(s => s.trim())
       .filter(Boolean);
-  }
-
-  if (Array.isArray(instructions)) {
+  } else if (Array.isArray(instructions)) {
     const steps = [];
     for (const item of instructions) {
       if (typeof item === 'string') {
@@ -209,38 +207,77 @@ function normalizeInstructions(instructions) {
         steps.push(item.text.trim());
       }
     }
-    return steps.filter(Boolean);
+    rawSteps = steps.filter(Boolean);
   }
 
-  return [];
+  // Many recipe sites cram several actions into one long instruction paragraph.
+  // Break those up into shorter, more scannable sub-steps.
+  const expanded = [];
+  for (const step of rawSteps) {
+    expanded.push(...splitLongStep(step));
+  }
+  return expanded;
+}
+
+// Splits a long paragraph-style instruction into shorter chunks, grouping
+// sentences together up to a target length rather than one-sentence-per-step
+// (which would be too choppy for short sentences).
+function splitLongStep(text, targetLen = 140) {
+  if (text.length <= targetLen) return [text];
+
+  // Split into sentences, being careful not to break on common abbreviations
+  const sentences = text
+    .replace(/\b(Tbsp|tbsp|tsp|oz|lb|min|hr|approx|e\.g)\./g, '$1__DOT__')
+    .split(/(?<=[.!?])\s+(?=[A-Z])/)
+    .map(s => s.replace(/__DOT__/g, '.').trim())
+    .filter(Boolean);
+
+  if (sentences.length <= 1) return [text];
+
+  const chunks = [];
+  let current = '';
+  for (const sentence of sentences) {
+    if (current && (current.length + sentence.length + 1) > targetLen) {
+      chunks.push(current.trim());
+      current = sentence;
+    } else {
+      current = current ? `${current} ${sentence}` : sentence;
+    }
+  }
+  if (current) chunks.push(current.trim());
+  return chunks;
 }
 
 /* ----- Match ingredients inline within each step's text ----- */
+const STOPWORDS = new Set(['of', 'and', 'to', 'taste', 'the', 'a', 'an', 'or', 'plus']);
+
 function buildStepParts(stepText, ingredients) {
   const timer = extractTimer(stepText);
 
-  // Build a list of {id, amount, name, keyword} sorted by keyword length (longest first)
-  // so we match "baby bella mushrooms" before just "mushroom"
   const matchers = ingredients
-    .map(ing => ({ ...ing, keyword: coreKeyword(ing.name) }))
-    .filter(ing => ing.keyword.length > 2)
-    .sort((a, b) => b.keyword.length - a.keyword.length);
+    .map(ing => ({ ...ing, candidates: keywordCandidates(ing.name) }))
+    .filter(ing => ing.candidates.length > 0);
 
   let remaining = stepText;
+  let offset = 0; // tracks position of `remaining` within the original stepText
   const parts = [];
   const matchedIds = new Set();
 
-  // Simple greedy scan: find earliest occurring matcher each loop
   while (remaining.length) {
     let earliest = null;
     let earliestIdx = Infinity;
+    let earliestLen = 0;
 
     for (const m of matchers) {
-      if (matchedIds.has(m.id)) continue; // each ingredient highlighted once per step
-      const idx = findWordIndex(remaining, m.keyword);
-      if (idx !== -1 && idx < earliestIdx) {
-        earliestIdx = idx;
-        earliest = m;
+      if (matchedIds.has(m.id)) continue;
+      for (const candidate of m.candidates) {
+        const idx = findWordIndex(remaining, candidate);
+        if (idx !== -1 && idx < earliestIdx) {
+          earliestIdx = idx;
+          earliest = m;
+          earliestLen = candidate.length;
+          break; // candidates are ordered longest/most-specific first; take first hit
+        }
       }
     }
 
@@ -255,19 +292,38 @@ function buildStepParts(stepText, ingredients) {
     parts.push({ ing: earliest.id });
     matchedIds.add(earliest.id);
 
-    remaining = remaining.slice(earliestIdx + earliest.keyword.length);
+    remaining = remaining.slice(earliestIdx + earliestLen);
   }
 
   return { parts, timer, rawText: stepText };
 }
 
-function coreKeyword(name) {
-  // Strip common prep words so matching focuses on the actual food item
-  return name
-    .replace(/\b(fresh|freshly|chopped|minced|sliced|diced|softened|melted|grated|packed|large|small|medium|room temperature|optional|to taste|cracked)\b/gi, '')
+// Builds a list of match candidates for an ingredient name, ordered from most
+// specific (full name) to least specific (just the last meaningful word),
+// since recipe steps often refer to ingredients more casually than the
+// ingredient list does (e.g. "the butter" instead of "unsalted butter").
+function keywordCandidates(name) {
+  const cleaned = name
+    .replace(/\b(fresh|freshly|chopped|minced|sliced|diced|softened|melted|grated|packed|large|small|medium|whole|room temperature|optional|to taste|cracked|granulated|unsalted|salted)\b/gi, '')
+    .replace(/\s+/g, ' ')
     .trim()
     .split(',')[0]
     .trim();
+
+  if (!cleaned) return [];
+
+  const words = cleaned.split(' ').filter(w => w && !STOPWORDS.has(w.toLowerCase()));
+  const candidates = new Set();
+
+  if (cleaned.length > 2) candidates.add(cleaned);
+  if (words.length >= 2) candidates.add(words.slice(-2).join(' '));
+  if (words.length >= 1) {
+    const last = words[words.length - 1];
+    if (last.length > 2) candidates.add(last);
+  }
+
+  // Longest first so we prefer the most specific match when multiple match
+  return Array.from(candidates).sort((a, b) => b.length - a.length);
 }
 
 function findWordIndex(text, keyword) {
