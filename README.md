@@ -1,81 +1,81 @@
 # Focus Plate — Setup Guide
 
-ADHD-friendly recipe reader. Paste any recipe link, get back a checklist-style
-version with ingredients highlighted inline within each step.
+ADHD-friendly recipe reader. Search recipes, browse popular starters, or paste
+any recipe link — get back a checklist-style version with ingredients
+highlighted inline within each step.
 
-This is built to deploy with **zero command line** — same workflow as your
-other projects (GitHub web UI → Vercel auto-deploy on commit).
+Built to deploy with **zero command line** (GitHub web UI → Vercel auto-deploy).
 
 ## File structure
-You need exactly these 3 files, in this exact folder structure:
+You need exactly these files, in this exact structure:
 
 ```
 focus-plate/
-├── index.html          ← the app itself
-├── package.json         ← tells Vercel this uses ES modules
+├── index.html              ← the app
+├── package.json             ← tells Vercel to use ES modules
 └── api/
-    └── parse-recipe.js  ← the backend that fetches & parses recipes
+    ├── parse-recipe.js      ← fetches & reformats a single recipe URL
+    └── search-recipes.js    ← live search across recipe sites
 ```
 
-The `api/` folder name matters — that's how Vercel knows to treat
-`parse-recipe.js` as a serverless function instead of a static file.
+The `api/` folder name matters — that's how Vercel knows those two files are
+serverless functions rather than static files.
 
-## Step-by-step
+## Adding the files (GitHub web UI)
+For each file: **Add file → Create new file**, type the filename (including the
+`api/` prefix for the two backend files — typing the slash auto-creates the
+folder), paste contents, commit to main.
 
-**1. Create the repo**
-Go to github.com → New repository → name it `focus-plate` (or whatever you
-like) → Create repository. Don't initialize with a README, you'll add files
-directly.
+If you already have the repo deployed, you only need to:
+1. **Add** the new file `api/search-recipes.js`
+2. **Replace** `index.html` and `api/parse-recipe.js` with these updated versions
+   (open each on GitHub → pencil icon → select all → paste new → commit)
 
-**2. Add the files via the web UI**
-- Click **"Add file" → "Create new file"**
-- For the filename, type `index.html` and paste in the contents of
-  `index.html` below
-- Commit directly to main
-- Repeat: **"Add file" → "Create new file"**, filename `package.json`, paste
-  contents, commit
-- Repeat once more: **"Add file" → "Create new file"**, and for the filename
-  type `api/parse-recipe.js` (typing the slash will automatically create the
-  `api` folder for you) — paste contents, commit
+Vercel redeploys automatically on each commit.
 
-**3. Connect to Vercel**
-- Go to vercel.com → Add New → Project
-- Import the `focus-plate` repo
-- Leave all settings as default (no build command needed — it's static
-  HTML + one serverless function)
-- Click Deploy
+## The three features
+1. **Search** — type a term (e.g. "chocolate chip"), and the app queries a few
+   recipe sites live and shows matching recipes. Tap one to open it in the
+   focus format.
+2. **Popular to start** — three preloaded recipes from trusted sites, for when
+   someone doesn't have a specific recipe in mind. Tapping one imports it live.
+3. **Paste a link** — paste any recipe URL to import it directly.
 
-That's it. From now on, every commit to main auto-redeploys, exactly like
-your other apps.
+All three route through the same parser, so the reading experience is identical
+no matter how a recipe got in.
 
-**4. Test it**
-Once deployed, open your Vercel URL and paste in a recipe link — try
-`https://www.budgetbytes.com/one-pot-creamy-mushroom-pasta/` or
-`https://sallysbakingaddiction.com/best-banana-bread-recipe/` first since
-those are confirmed to work well.
+## How search works (and how to change which sites it searches)
+Search uses each site's built-in **WordPress REST API** — a stable, public JSON
+interface that WordPress sites expose by default. This is far more reliable
+than scraping search-result pages.
 
-## How it works
-- You paste a URL into the app
-- The app calls `/api/parse-recipe?url=...` (your own backend, same project)
-- That function fetches the page's HTML, pulls out its embedded schema.org
-  recipe data (the same structured data Google uses for recipe rich
-  results), and reshapes it into ingredients + steps with inline ingredient
-  highlighting
-- The result is cached in your browser's local storage as "Recently viewed"
-  so reopening a recipe doesn't re-fetch it
+To change which sites are searched, open `api/search-recipes.js` and edit the
+`SITES` list near the top:
 
-## What works well vs. what doesn't (yet)
-**Works well:** most major recipe blogs and sites — WordPress-based food
-blogs (which is most of them), NYT Cooking, AllRecipes, Bon Appétit, Budget
-Bytes, Sally's Baking Addiction, etc. These all publish structured recipe
-data for Google/Pinterest, which is what this app reads.
+```js
+const SITES = [
+  { name: "Sally's Baking Addiction", base: "https://sallysbakingaddiction.com" },
+  { name: "Budget Bytes", base: "https://www.budgetbytes.com" },
+];
+```
 
-**Won't work:** sites that don't publish structured recipe data (rare for
-real recipe sites, but possible for smaller personal blogs or sites with
-broken markup) — you'll get a clear error message rather than a garbled
-result.
+Add any WordPress-based recipe site the same way (most food blogs are
+WordPress). One commit, and search picks it up.
 
-**Known rough edge:** the ingredient-highlighting in each step uses simple
-text matching, so occasionally a second mention of an ingredient later in a
-step (e.g. "the mushrooms" after already saying "baby bella mushrooms")
-won't get highlighted. Not a blocker, just something to expect.
+## Things to expect / known limits
+- **A site might block search.** Some sites block non-browser traffic or disable
+  their JSON API. If a site returns nothing, search just skips it silently and
+  shows results from the others. If one never works, swap it out of the `SITES`
+  list.
+- **Search results may include non-recipe posts** (like a "12 best cookies"
+  round-up). Those will open with a clear "couldn't find recipe data" message
+  rather than a broken screen, since they have no single structured recipe.
+- **Ingredient highlighting** uses text matching, so a second casual mention of
+  an ingredient later in the same step occasionally won't highlight. Not a
+  blocker, just expected.
+- **Preloaded recipes** import live each time they're tapped, so they always
+  reflect the current version on the source site.
+
+## Test links known to work well
+- https://sallysbakingaddiction.com/best-banana-bread-recipe/
+- https://www.budgetbytes.com/one-pot-creamy-mushroom-pasta/
