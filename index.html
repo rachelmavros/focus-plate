@@ -20,90 +20,53 @@
   }
   *{box-sizing:border-box;}
   body{
-    margin:0;
-    background:var(--bg);
-    color:var(--ink);
+    margin:0; background:var(--bg); color:var(--ink);
     font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
-    line-height:1.6;
-    -webkit-font-smoothing:antialiased;
+    line-height:1.6; -webkit-font-smoothing:antialiased;
   }
   a{ color: inherit; }
 
-  .top-gradient{
-    padding: 30px 22px 26px;
-    background: var(--card);
-    border-bottom: 1px solid var(--line);
-  }
-  .brand{
-    font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
-    color: var(--accent-deep); display:flex; align-items:center; gap:6px;
-  }
-  .tagline{
-    font-family: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
-    font-size: 25px; font-weight: 400; font-style: italic; margin-top: 10px;
-    color: var(--ink); letter-spacing: -0.01em;
-  }
+  .top-gradient{ padding: 30px 22px 26px; background: var(--card); border-bottom: 1px solid var(--line); }
+  .brand{ font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent-deep); display:flex; align-items:center; gap:6px; }
+  .tagline{ font-family: Georgia, 'Iowan Old Style', 'Times New Roman', serif; font-size: 25px; font-weight: 400; font-style: italic; margin-top: 10px; color: var(--ink); letter-spacing: -0.01em; }
 
   main{ max-width: 560px; margin: 0 auto; padding: 4px 0 80px; }
 
-  .url-box{
-    margin: 20px 20px 0; background: var(--card); border: 1px solid var(--line);
-    border-radius: var(--radius); padding: 18px;
-  }
-  .url-box label{ font-size: 12px; font-weight: 700; color: var(--accent-deep); text-transform: uppercase; letter-spacing: 0.08em; }
-  .url-row{ display:flex; gap: 8px; margin-top: 10px; }
-  .url-row input{
-    flex:1; border: 1.5px solid var(--line); background: var(--bg); border-radius: 10px;
-    padding: 11px 14px; font-size: 15px; font-family: inherit; outline: none; min-width: 0; color: var(--ink);
-  }
-  .url-row input:focus{ border-color: var(--accent); }
-  .url-row button{
-    background: var(--accent); color: white; border: none; border-radius: 10px;
-    padding: 0 20px; font-weight: 700; font-size: 15px; cursor: pointer; flex-shrink:0;
-  }
-  .url-row button:disabled{ opacity: 0.6; cursor: default; }
-  .url-row button:active:not(:disabled){ transform: scale(0.97); }
-  .url-hint{ font-size: 12.5px; color: var(--ink-soft); margin-top: 9px; }
-  .url-error{ font-size: 13px; color: var(--accent-deep); font-weight: 600; margin-top: 10px; display:none; }
-  .url-error.show{ display:block; }
-  .url-loading{ font-size: 13px; color: var(--pop); font-weight: 600; margin-top: 10px; display:none; }
-  .url-loading.show{ display:block; }
+  .box{ margin: 20px 20px 0; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; }
+  .box label{ font-size: 12px; font-weight: 700; color: var(--accent-deep); text-transform: uppercase; letter-spacing: 0.08em; }
+  .input-row{ display:flex; gap: 8px; margin-top: 10px; }
+  .input-row input{ flex:1; border: 1.5px solid var(--line); background: var(--bg); border-radius: 10px; padding: 11px 14px; font-size: 15px; font-family: inherit; outline: none; min-width: 0; color: var(--ink); }
+  .input-row input:focus{ border-color: var(--accent); }
+  .input-row button{ background: var(--accent); color: white; border: none; border-radius: 10px; padding: 0 20px; font-weight: 700; font-size: 15px; cursor: pointer; flex-shrink:0; }
+  .input-row button:disabled{ opacity: 0.6; cursor: default; }
+  .input-row button:active:not(:disabled){ transform: scale(0.97); }
+  .hint{ font-size: 12.5px; color: var(--ink-soft); margin-top: 9px; }
+  .msg{ font-size: 13px; font-weight: 600; margin-top: 10px; display:none; }
+  .msg.show{ display:block; }
+  .msg.err{ color: var(--accent-deep); }
+  .msg.load{ color: var(--pop); }
 
   .section-label{ margin: 28px 20px 0; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-soft); }
-  .empty-state{ margin: 12px 20px 0; padding: 24px; text-align:center; color: var(--ink-soft); font-size: 14px; }
+  .empty-state{ margin: 12px 20px 0; padding: 18px; text-align:center; color: var(--ink-soft); font-size: 14px; }
   .recipe-grid{ padding: 12px 20px 0; display:flex; flex-direction:column; gap: 12px; }
-  .recipe-card{
-    background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
-    overflow:hidden; cursor:pointer; display:flex; align-items:center; gap: 14px; padding: 14px;
-    transition: border-color 0.15s ease;
-  }
+  .recipe-card{ background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); overflow:hidden; cursor:pointer; display:flex; align-items:center; gap: 14px; padding: 14px; transition: border-color 0.15s ease; }
   .recipe-card:hover{ border-color: var(--accent); }
   .recipe-card:active{ transform: scale(0.99); }
-  .recipe-thumb{
-    width: 60px; height: 60px; border-radius: 12px; flex-shrink:0; background: var(--accent-soft);
-    display:flex; align-items:center; justify-content:center; font-size: 26px; overflow:hidden;
-  }
+  .recipe-card.loading{ opacity: 0.6; pointer-events: none; }
+  .recipe-thumb{ width: 60px; height: 60px; border-radius: 12px; flex-shrink:0; background: var(--accent-soft); display:flex; align-items:center; justify-content:center; font-size: 26px; overflow:hidden; }
   .recipe-thumb img{ width:100%; height:100%; object-fit:cover; }
+  .recipe-info{ min-width:0; flex:1; }
   .recipe-info .title{ font-weight: 700; font-size: 15.5px; font-family: Georgia, serif; }
   .recipe-info .src{ font-size: 12.5px; color: var(--ink-soft); margin-top: 3px; font-weight: 600; }
-  .remove-btn{
-    margin-left:auto; background:none; border:none; color: var(--ink-soft); font-size: 18px;
-    cursor:pointer; padding: 4px 8px; flex-shrink:0;
-  }
+  .remove-btn{ margin-left:auto; background:none; border:none; color: var(--ink-soft); font-size: 18px; cursor:pointer; padding: 4px 8px; flex-shrink:0; }
   .remove-btn:hover{ color: var(--accent-deep); }
 
   .detail-header{ padding: 24px 22px 24px; background: var(--card); border-bottom: 1px solid var(--line); }
-  .back-btn{
-    background: var(--bg); border: 1px solid var(--line); color: var(--ink); font-weight: 700;
-    font-size: 13px; padding: 7px 14px; border-radius: 999px; cursor:pointer; margin-bottom: 16px;
-  }
+  .back-btn{ background: var(--bg); border: 1px solid var(--line); color: var(--ink); font-weight: 700; font-size: 13px; padding: 7px 14px; border-radius: 999px; cursor:pointer; margin-bottom: 16px; }
   .back-btn:hover{ border-color: var(--accent); }
   .source{ font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-soft); }
   .source a{ color: var(--accent-deep); text-decoration-color: var(--accent-soft); }
-  h1{
-    font-family: Georgia, 'Iowan Old Style', 'Times New Roman', serif; font-size: 27px;
-    margin: 10px 0 6px; font-weight: 400; letter-spacing: -0.01em; color: var(--ink);
-  }
+  h1{ font-family: Georgia, 'Iowan Old Style', 'Times New Roman', serif; font-size: 27px; margin: 10px 0 6px; font-weight: 400; letter-spacing: -0.01em; color: var(--ink); }
   .meta-pills{ display:flex; gap: 10px; font-size: 13px; font-weight: 600; margin-top: 12px; flex-wrap: wrap; }
   .meta-pills span{ background: var(--accent-soft); color: var(--accent-deep); padding: 5px 12px; border-radius: 999px; }
 
@@ -113,16 +76,10 @@
   .progress-label{ font-size: 13px; font-weight: 600; color: var(--ink-soft); margin-top: 9px; }
 
   .ing-header{ margin: 24px 22px 0; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent-deep); }
-  .ing-list{
-    list-style:none; padding: 6px 18px; margin: 12px 20px 0; border-radius: var(--radius);
-    background: var(--pop-soft); border: 1px solid #DCE5D6;
-  }
+  .ing-list{ list-style:none; padding: 6px 18px; margin: 12px 20px 0; border-radius: var(--radius); background: var(--pop-soft); border: 1px solid #DCE5D6; }
   .ing-list li{ display:flex; align-items:center; gap:12px; padding: 11px 4px; font-size: 15.5px; font-weight: 500; border-bottom: 1px solid rgba(138,154,126,0.18); }
   .ing-list li:last-child{ border-bottom: none; }
-  .ing-box{
-    flex-shrink:0; width: 21px; height:21px; border-radius: 6px; border: 2px solid var(--pop);
-    background: var(--card); display:flex; align-items:center; justify-content:center; cursor:pointer;
-  }
+  .ing-box{ flex-shrink:0; width: 21px; height:21px; border-radius: 6px; border: 2px solid var(--pop); background: var(--card); display:flex; align-items:center; justify-content:center; cursor:pointer; }
   .ing-box svg{ width:12px; height:12px; opacity:0; }
   .ing-list li.checked .ing-box{ background: var(--pop); }
   .ing-list li.checked .ing-box svg{ opacity:1; }
@@ -133,10 +90,7 @@
   .step{ border-radius: var(--radius); background: var(--card); margin-bottom: 14px; overflow:hidden; border: 1px solid var(--line); transition: opacity 0.3s ease; }
   .step.done{ opacity: 0.55; }
   .step-head{ display:flex; gap:12px; padding: 18px 16px; align-items:flex-start; }
-  .step-check{
-    flex-shrink:0; width: 28px; height:28px; border-radius: 50%; border: 2px solid var(--line);
-    margin-top: 2px; cursor:pointer; display:flex; align-items:center; justify-content:center; background: var(--card);
-  }
+  .step-check{ flex-shrink:0; width: 28px; height:28px; border-radius: 50%; border: 2px solid var(--line); margin-top: 2px; cursor:pointer; display:flex; align-items:center; justify-content:center; background: var(--card); }
   .step-check svg{ width:14px; height:14px; opacity:0; }
   .step.done .step-check{ background: var(--pop); border-color: var(--pop); }
   .step.done .step-check svg{ opacity:1; }
@@ -145,19 +99,12 @@
   .step.done .step-text{ text-decoration: line-through; text-decoration-color: var(--line); }
   .ing-inline{ background: var(--accent-soft); color: var(--accent-deep); font-weight: 700; padding: 1px 7px; border-radius: 6px; cursor: pointer; }
   .ing-inline.checked{ background: var(--pop-soft); color: var(--pop); text-decoration: line-through; }
-  .step-timer{
-    margin: 0 16px 16px 56px; display:inline-flex; align-items:center; gap:6px; font-size: 12.5px;
-    font-weight: 600; color: var(--ink-soft); background: var(--bg); border: 1.5px dashed var(--line);
-    padding: 5px 10px; border-radius: 999px;
-  }
+  .step-timer{ margin: 0 16px 16px 56px; display:inline-flex; align-items:center; gap:6px; font-size: 12.5px; font-weight: 600; color: var(--ink-soft); background: var(--bg); border: 1.5px dashed var(--line); padding: 5px 10px; border-radius: 999px; }
 
   footer{ text-align:center; padding: 32px 24px 10px; font-size: 12px; color: var(--ink-soft); }
   .hidden{ display:none !important; }
 
-  .spinner{
-    width:14px; height:14px; border: 2px solid var(--pop-soft); border-top-color: var(--pop);
-    border-radius: 50%; display:inline-block; animation: spin 0.7s linear infinite; margin-right: 6px; vertical-align: -2px;
-  }
+  .spinner{ width:14px; height:14px; border: 2px solid var(--pop-soft); border-top-color: var(--pop); border-radius: 50%; display:inline-block; animation: spin 0.7s linear infinite; margin-right: 6px; vertical-align: -2px; }
   @keyframes spin{ to{ transform: rotate(360deg); } }
 </style>
 </head>
@@ -171,19 +118,41 @@
   </div>
 
   <main>
-    <div class="url-box">
-      <label>Paste a recipe link</label>
-      <div class="url-row">
+    <!-- SEARCH -->
+    <div class="box">
+      <label>Search recipes</label>
+      <div class="input-row">
+        <input type="text" id="searchInput" placeholder="e.g. chocolate chip, pasta, banana…">
+        <button id="searchBtn">Search</button>
+      </div>
+      <div class="msg load" id="searchLoading"><span class="spinner"></span>Searching…</div>
+      <div class="msg err" id="searchError"></div>
+      <div class="hint">Searches across a few trusted recipe sites.</div>
+    </div>
+
+    <div id="searchResultsSection" class="hidden">
+      <div class="section-label">Search results</div>
+      <div class="recipe-grid" id="searchResults"></div>
+    </div>
+
+    <!-- PASTE URL -->
+    <div class="box">
+      <label>Or paste a recipe link</label>
+      <div class="input-row">
         <input type="text" id="urlInput" placeholder="https://example.com/some-recipe">
         <button id="urlGoBtn">Go</button>
       </div>
-      <div class="url-loading" id="urlLoading"><span class="spinner"></span>Fetching &amp; reformatting…</div>
-      <div class="url-error" id="urlError"></div>
-      <div class="url-hint">Works on most recipe blogs &amp; sites that publish structured recipe data.</div>
+      <div class="msg load" id="urlLoading"><span class="spinner"></span>Fetching &amp; reformatting…</div>
+      <div class="msg err" id="urlError"></div>
     </div>
 
+    <!-- PRELOADED -->
+    <div class="section-label">Popular to start</div>
+    <div class="recipe-grid" id="preloadedGrid"></div>
+
+    <!-- RECENTLY VIEWED -->
     <div class="section-label">Recently viewed</div>
-    <div id="emptyState" class="empty-state">Paste a link above to get started — your imported recipes will show up here.</div>
+    <div id="emptyState" class="empty-state">Recipes you open will show up here for quick access.</div>
     <div class="recipe-grid" id="libraryGrid"></div>
   </main>
   <footer>Recipes &amp; photos belong to their original sources — full credit and links are shown on every recipe.</footer>
@@ -197,16 +166,13 @@
     <h1 id="d-title"></h1>
     <div class="meta-pills" id="d-meta"></div>
   </div>
-
   <main>
     <div class="progress-wrap">
       <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
       <div class="progress-label" id="progressLabel"></div>
     </div>
-
     <div class="ing-header">Ingredients</div>
     <ul class="ing-list" id="ingList"></ul>
-
     <div class="steps" id="steps"></div>
   </main>
   <footer>Reformatted for focus. Recipe &amp; photos belong to the original source — tap the link above for the full story and photos.</footer>
@@ -214,22 +180,28 @@
 
 <script>
 /* ============== CONFIG ============== */
-// Same-origin call since the frontend and /api function deploy together on Vercel.
-const API_ENDPOINT = '/api/parse-recipe';
+const PARSE_ENDPOINT = '/api/parse-recipe';
+const SEARCH_ENDPOINT = '/api/search-recipes';
 const LIBRARY_KEY = 'focusplate_library';
 const MAX_LIBRARY_ITEMS = 12;
+
+// 3 preloaded starter recipes (from different sites). Clicking one imports it
+// live through the same parser, so they're always current.
+const PRELOADED = [
+  { title: 'My Favorite Banana Bread', source: "Sally's Baking Addiction", emoji: '🍌', url: 'https://sallysbakingaddiction.com/best-banana-bread-recipe/' },
+  { title: 'One Pot Creamy Mushroom Pasta', source: 'Budget Bytes', emoji: '🍝', url: 'https://www.budgetbytes.com/one-pot-creamy-mushroom-pasta/' },
+  { title: 'Quick & Easy Garlic Noodles', source: 'Budget Bytes', emoji: '🍜', url: 'https://www.budgetbytes.com/garlic-noodles/' },
+];
 
 let currentRecipe = null;
 const ingState = {};
 let stepDone = [];
 
-/* ============== LOCAL LIBRARY (recently viewed, cached so no re-fetch) ============== */
+/* ============== LOCAL LIBRARY ============== */
 function getLibrary(){
-  try {
-    return JSON.parse(localStorage.getItem(LIBRARY_KEY) || '[]');
-  } catch { return []; }
+  try { return JSON.parse(localStorage.getItem(LIBRARY_KEY) || '[]'); }
+  catch { return []; }
 }
-
 function saveToLibrary(recipe){
   let lib = getLibrary().filter(r => r.sourceUrl !== recipe.sourceUrl);
   lib.unshift(recipe);
@@ -237,11 +209,40 @@ function saveToLibrary(recipe){
   localStorage.setItem(LIBRARY_KEY, JSON.stringify(lib));
   renderLibrary();
 }
-
 function removeFromLibrary(sourceUrl){
   const lib = getLibrary().filter(r => r.sourceUrl !== sourceUrl);
   localStorage.setItem(LIBRARY_KEY, JSON.stringify(lib));
   renderLibrary();
+}
+
+/* ============== CARD RENDERING ============== */
+function makeCard({ title, source, emoji, image, onClick, onRemove }){
+  const card = document.createElement('div');
+  card.className = 'recipe-card';
+  card.innerHTML = `
+    <div class="recipe-thumb">${image ? `<img src="${image}" alt="">` : (emoji || '🍽️')}</div>
+    <div class="recipe-info">
+      <div class="title">${escapeHtml(title)}</div>
+      <div class="src">${escapeHtml(source || '')}</div>
+    </div>
+    ${onRemove ? '<button class="remove-btn" title="Remove">✕</button>' : ''}
+  `;
+  card.onclick = () => onClick(card);
+  if (onRemove) {
+    card.querySelector('.remove-btn').onclick = (e) => { e.stopPropagation(); onRemove(); };
+  }
+  return card;
+}
+
+function renderPreloaded(){
+  const grid = document.getElementById('preloadedGrid');
+  grid.innerHTML = '';
+  PRELOADED.forEach(item => {
+    grid.appendChild(makeCard({
+      title: item.title, source: item.source, emoji: item.emoji,
+      onClick: (card) => importAndOpen(item.url, card),
+    }));
+  });
 }
 
 function renderLibrary(){
@@ -249,34 +250,65 @@ function renderLibrary(){
   const grid = document.getElementById('libraryGrid');
   const empty = document.getElementById('emptyState');
   grid.innerHTML = '';
-
-  if (!lib.length){
-    empty.classList.remove('hidden');
-    return;
-  }
+  if (!lib.length){ empty.classList.remove('hidden'); return; }
   empty.classList.add('hidden');
-
   lib.forEach(recipe => {
-    const card = document.createElement('div');
-    card.className = 'recipe-card';
-    card.innerHTML = `
-      <div class="recipe-thumb">${recipe.image ? `<img src="${recipe.image}" alt="">` : '🍽️'}</div>
-      <div class="recipe-info">
-        <div class="title">${escapeHtml(recipe.title)}</div>
-        <div class="src">${escapeHtml(recipe.sourceName)}</div>
-      </div>
-      <button class="remove-btn" title="Remove">✕</button>
-    `;
-    card.onclick = () => openRecipe(recipe);
-    card.querySelector('.remove-btn').onclick = (e) => {
-      e.stopPropagation();
-      removeFromLibrary(recipe.sourceUrl);
-    };
-    grid.appendChild(card);
+    grid.appendChild(makeCard({
+      title: recipe.title, source: recipe.sourceName, image: recipe.image,
+      onClick: () => openRecipe(recipe), // already parsed & cached — open instantly
+      onRemove: () => removeFromLibrary(recipe.sourceUrl),
+    }));
   });
 }
 
-/* ============== URL SUBMIT -> CALL BACKEND ============== */
+/* ============== SEARCH ============== */
+const searchInput = document.getElementById('searchInput');
+const searchBtn = document.getElementById('searchBtn');
+const searchLoading = document.getElementById('searchLoading');
+const searchError = document.getElementById('searchError');
+const searchResultsSection = document.getElementById('searchResultsSection');
+const searchResults = document.getElementById('searchResults');
+
+searchBtn.onclick = runSearch;
+searchInput.addEventListener('keydown', e => { if (e.key === 'Enter') runSearch(); });
+
+async function runSearch(){
+  const q = searchInput.value.trim();
+  searchError.classList.remove('show');
+  if (!q) return;
+
+  searchBtn.disabled = true;
+  searchLoading.classList.add('show');
+  searchResults.innerHTML = '';
+
+  try {
+    const res = await fetch(`${SEARCH_ENDPOINT}?q=${encodeURIComponent(q)}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Search failed.');
+
+    if (!data.results || !data.results.length){
+      searchResultsSection.classList.remove('hidden');
+      searchResults.innerHTML = `<div class="empty-state">No matches found for “${escapeHtml(q)}”. Try a simpler term.</div>`;
+      return;
+    }
+
+    searchResultsSection.classList.remove('hidden');
+    data.results.forEach(r => {
+      searchResults.appendChild(makeCard({
+        title: r.title, source: r.source, image: r.image,
+        onClick: (card) => importAndOpen(r.url, card),
+      }));
+    });
+  } catch (err) {
+    searchError.textContent = err.message || 'Search failed — try again.';
+    searchError.classList.add('show');
+  } finally {
+    searchBtn.disabled = false;
+    searchLoading.classList.remove('show');
+  }
+}
+
+/* ============== PASTE URL ============== */
 const urlInput = document.getElementById('urlInput');
 const urlGoBtn = document.getElementById('urlGoBtn');
 const urlLoading = document.getElementById('urlLoading');
@@ -285,40 +317,52 @@ const urlError = document.getElementById('urlError');
 urlGoBtn.onclick = handleUrlSubmit;
 urlInput.addEventListener('keydown', e => { if (e.key === 'Enter') handleUrlSubmit(); });
 
-async function handleUrlSubmit(){
+function handleUrlSubmit(){
   const val = urlInput.value.trim();
   urlError.classList.remove('show');
   if (!val) return;
-
-  let parsedUrl;
-  try {
-    parsedUrl = new URL(val);
-  } catch {
+  let parsed;
+  try { parsed = new URL(val); }
+  catch {
     urlError.textContent = "That doesn't look like a valid link — make sure it starts with https://";
     urlError.classList.add('show');
     return;
   }
+  importAndOpen(parsed.href, null, { loadingEl: urlLoading, errorEl: urlError, btnEl: urlGoBtn, inputEl: urlInput });
+}
 
-  urlGoBtn.disabled = true;
-  urlLoading.classList.add('show');
+/* ============== SHARED IMPORT FLOW ============== */
+// Used by paste, preloaded cards, and search results — all route through the
+// same parser so behavior is identical everywhere.
+async function importAndOpen(url, cardEl, opts = {}){
+  const { loadingEl, errorEl, btnEl, inputEl } = opts;
+
+  if (cardEl) cardEl.classList.add('loading');
+  if (loadingEl) loadingEl.classList.add('show');
+  if (errorEl) errorEl.classList.remove('show');
+  if (btnEl) btnEl.disabled = true;
 
   try {
-    const res = await fetch(`${API_ENDPOINT}?url=${encodeURIComponent(parsedUrl.href)}`);
+    const res = await fetch(`${PARSE_ENDPOINT}?url=${encodeURIComponent(url)}`);
     const data = await res.json();
-
-    if (!res.ok) {
-      throw new Error(data.error || 'Something went wrong.');
-    }
+    if (!res.ok) throw new Error(data.error || 'Could not import that recipe.');
 
     saveToLibrary(data);
     openRecipe(data);
-    urlInput.value = '';
+    if (inputEl) inputEl.value = '';
   } catch (err) {
-    urlError.textContent = err.message || "Couldn't import that recipe — try a different link.";
-    urlError.classList.add('show');
+    const message = err.message || "Couldn't import that recipe — try a different link.";
+    if (errorEl) {
+      errorEl.textContent = message;
+      errorEl.classList.add('show');
+    } else {
+      searchError.textContent = message;
+      searchError.classList.add('show');
+    }
   } finally {
-    urlGoBtn.disabled = false;
-    urlLoading.classList.remove('show');
+    if (cardEl) cardEl.classList.remove('loading');
+    if (loadingEl) loadingEl.classList.remove('show');
+    if (btnEl) btnEl.disabled = false;
   }
 }
 
@@ -376,7 +420,6 @@ function renderSteps(){
   currentRecipe.steps.forEach((step, idx) => {
     const el = document.createElement('div');
     el.className = 'step' + (stepDone[idx] ? ' done' : '');
-
     const textHtml = step.parts.map(part => {
       if (typeof part === 'string') return escapeHtml(part);
       const ing = currentRecipe.ingredients.find(i => i.id === part.ing);
@@ -404,7 +447,6 @@ function renderSteps(){
       renderSteps();
       updateProgress();
     };
-
     el.querySelectorAll('.ing-inline').forEach(span => {
       span.onclick = (e) => {
         e.stopPropagation();
@@ -414,7 +456,6 @@ function renderSteps(){
         renderSteps();
       };
     });
-
     wrap.appendChild(el);
   });
 }
@@ -432,6 +473,7 @@ function escapeHtml(str){
   return div.innerHTML;
 }
 
+renderPreloaded();
 renderLibrary();
 </script>
 
