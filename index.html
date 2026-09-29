@@ -57,6 +57,12 @@
     padding: 11px 14px; font-size: 15px; font-family: inherit; outline: none; min-width: 0; color: var(--ink);
   }
   .url-row input:focus{ border-color: var(--accent); }
+  #textInput{
+    width:100%; margin-top: 10px; border: 1.5px solid var(--line); background: var(--bg);
+    border-radius: 10px; padding: 11px 14px; font-size: 15px; font-family: inherit; outline: none;
+    color: var(--ink); resize: vertical; min-height: 110px; line-height:1.5;
+  }
+  #textInput:focus{ border-color: var(--accent); }
   .url-row button{
     background: var(--accent); color: white; border: none; border-radius: 10px;
     padding: 0 20px; font-weight: 700; font-size: 15px; cursor: pointer; flex-shrink:0;
@@ -172,14 +178,18 @@
 
   <main>
     <div class="url-box">
-      <label>Paste a recipe link</label>
+      <label>Paste a recipe link, a TikTok/IG link, or the recipe text itself</label>
       <div class="url-row">
-        <input type="text" id="urlInput" placeholder="https://example.com/some-recipe">
+        <input type="text" id="urlInput" placeholder="Link, or paste recipe text…">
         <button id="urlGoBtn">Go</button>
       </div>
-      <div class="url-loading" id="urlLoading"><span class="spinner"></span>Fetching &amp; reformatting…</div>
+      <textarea id="textInput" class="hidden" placeholder="Paste the recipe text here (from a chat, a note, a caption, etc.)"></textarea>
+      <div class="url-loading" id="urlLoading"><span class="spinner"></span><span id="urlLoadingText">Fetching &amp; reformatting…</span></div>
       <div class="url-error" id="urlError"></div>
-      <div class="url-hint">Works on most recipe blogs &amp; sites that publish structured recipe data.</div>
+      <div class="url-hint">
+        Works on recipe blogs, TikTok/Instagram links with the recipe in the caption, or text pasted directly (from an AI chat, notes, etc.).
+        <a href="#" id="modeToggle" style="text-decoration:underline; color:var(--accent-deep); font-weight:600;">Paste text instead</a>
+      </div>
     </div>
 
     <div class="section-label">Recently viewed</div>
@@ -214,8 +224,9 @@
 
 <script>
 /* ============== CONFIG ============== */
-// Same-origin call since the frontend and /api function deploy together on Vercel.
-const API_ENDPOINT = '/api/parse-recipe';
+// Same-origin calls since the frontend and /api functions deploy together on Vercel.
+const PARSE_ENDPOINT = '/api/parse-recipe';       // blog/site links with schema.org data
+const EXTRACT_ENDPOINT = '/api/extract-recipe';   // pasted text, or TikTok/IG links (caption -> LLM)
 const LIBRARY_KEY = 'focusplate_library';
 const MAX_LIBRARY_ITEMS = 12;
 
@@ -276,50 +287,129 @@ function renderLibrary(){
   });
 }
 
-/* ============== URL SUBMIT -> CALL BACKEND ============== */
+/* ============== INPUT SUBMIT -> DETECT MODE -> CALL RIGHT BACKEND ============== */
 const urlInput = document.getElementById('urlInput');
+const textInput = document.getElementById('textInput');
 const urlGoBtn = document.getElementById('urlGoBtn');
 const urlLoading = document.getElementById('urlLoading');
+const urlLoadingText = document.getElementById('urlLoadingText');
 const urlError = document.getElementById('urlError');
 
-urlGoBtn.onclick = handleUrlSubmit;
-urlInput.addEventListener('keydown', e => { if (e.key === 'Enter') handleUrlSubmit(); });
+const SOCIAL_HOST_PATTERN = /(^|\.)(?:tiktok\.com|instagram\.com)$/i;
 
-async function handleUrlSubmit(){
-  const val = urlInput.value.trim();
+urlGoBtn.onclick = handleSubmit;
+urlInput.addEventListener('keydown', e => { if (e.key === 'Enter') handleSubmit(); });
+
+// If someone pastes a big block of text into the single-line input, swap to
+// the textarea automatically so it's not squashed into one line.
+urlInput.addEventListener('input', () => {
+  if (urlInput.value.length > 120 && !looksLikeUrl(urlInput.value)) {
+    textInput.value = urlInput.value;
+    urlInput.value = '';
+    switchToTextMode();
+    textInput.focus();
+  }
+});
+
+function switchToTextMode(){
+  urlInput.classList.add('hidden');
+  textInput.classList.remove('hidden');
+}
+function switchToUrlMode(){
+  textInput.classList.add('hidden');
+  urlInput.classList.remove('hidden');
+}
+
+const modeToggle = document.getElementById('modeToggle');
+modeToggle.onclick = (e) => {
+  e.preventDefault();
+  if (textInput.classList.contains('hidden')) {
+    switchToTextMode();
+    textInput.focus();
+    modeToggle.textContent = 'Paste a link instead';
+  } else {
+    switchToUrlMode();
+    urlInput.focus();
+    modeToggle.textContent = 'Paste text instead';
+  }
+};
+
+function looksLikeUrl(str){
+  const trimmed = str.trim();
+  if (/\s/.test(trimmed) && trimmed.length > 60) return false; // long + has spaces -> probably prose
+  try {
+    const u = new URL(trimmed);
+    return !!u.hostname;
+  } catch {
+    return false;
+  }
+}
+
+async function handleSubmit(){
+  const urlVal = urlInput.value.trim();
+  const textVal = textInput.value.trim();
+  const val = textInput.classList.contains('hidden') ? urlVal : textVal;
+
   urlError.classList.remove('show');
   if (!val) return;
 
-  let parsedUrl;
-  try {
-    parsedUrl = new URL(val);
-  } catch {
-    urlError.textContent = "That doesn't look like a valid link — make sure it starts with https://";
-    urlError.classList.add('show');
-    return;
-  }
-
   urlGoBtn.disabled = true;
-  urlLoading.classList.add('show');
 
   try {
-    const res = await fetch(`${API_ENDPOINT}?url=${encodeURIComponent(parsedUrl.href)}`);
-    const data = await res.json();
+    let data;
 
-    if (!res.ok) {
-      throw new Error(data.error || 'Something went wrong.');
+    if (!textInput.classList.contains('hidden')) {
+      // Explicit text mode
+      data = await callExtract({ text: val });
+    } else if (looksLikeUrl(val)) {
+      const parsedUrl = new URL(val);
+      const host = parsedUrl.hostname.replace('www.', '');
+      if (SOCIAL_HOST_PATTERN.test(host)) {
+        data = await callExtract({ socialUrl: parsedUrl.href });
+      } else {
+        data = await callParse(parsedUrl.href);
+      }
+    } else {
+      // Not a URL and not in the textarea — treat as pasted text anyway
+      data = await callExtract({ text: val });
     }
 
     saveToLibrary(data);
     openRecipe(data);
     urlInput.value = '';
+    textInput.value = '';
+    switchToUrlMode();
   } catch (err) {
-    urlError.textContent = err.message || "Couldn't import that recipe — try a different link.";
+    urlError.textContent = err.message || "Couldn't import that recipe — try a different link or paste the text directly.";
     urlError.classList.add('show');
   } finally {
     urlGoBtn.disabled = false;
     urlLoading.classList.remove('show');
   }
+}
+
+async function callParse(url){
+  urlLoadingText.textContent = 'Fetching & reformatting…';
+  urlLoading.classList.add('show');
+  const res = await fetch(`${PARSE_ENDPOINT}?url=${encodeURIComponent(url)}`);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Something went wrong.');
+  return data;
+}
+
+async function callExtract(body){
+  urlLoadingText.textContent = body.socialUrl
+    ? 'Grabbing the caption & reading the recipe…'
+    : 'Reading the recipe…';
+  urlLoading.classList.add('show');
+  const res = await fetch(EXTRACT_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Something went wrong.');
+  return data;
 }
 
 /* ============== DETAIL VIEW ============== */
