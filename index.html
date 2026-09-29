@@ -491,6 +491,37 @@ function saveCardMeta(url, patch){
   localStorage.setItem(POPULAR_THUMBS_KEY, JSON.stringify(cache));
 }
 
+// Popular and Search both want to background-fetch a photo/rating for
+// several cards at once as soon as they render. Firing all of those at the
+// same instant — several different sites getting hit within milliseconds of
+// each other — looks exactly like automated scraping to basic rate-limiting
+// and bot-detection, even with a normal browser User-Agent and headers on
+// each individual request. A single manual paste never trips this, since
+// it's one request at human pace. So these go out through a small queue
+// instead: only 2 in flight at once, with a short pause between each new
+// one starting, to look like ordinary sequential browsing rather than a
+// burst.
+const META_QUEUE = [];
+let metaQueueActive = 0;
+const META_QUEUE_CONCURRENCY = 2;
+const META_QUEUE_STAGGER_MS = 400;
+
+function queueCardMeta(url, card, opts){
+  META_QUEUE.push({ url, card, opts });
+  pumpMetaQueue();
+}
+
+function pumpMetaQueue(){
+  while (metaQueueActive < META_QUEUE_CONCURRENCY && META_QUEUE.length){
+    const job = META_QUEUE.shift();
+    metaQueueActive++;
+    syncCardMeta(job.url, job.card, job.opts).finally(() => {
+      metaQueueActive--;
+      setTimeout(pumpMetaQueue, META_QUEUE_STAGGER_MS);
+    });
+  }
+}
+
 // Quietly fetches a recipe's real photo and star rating in the background so
 // a card can upgrade from emoji/no-rating without the user clicking it
 // first. Never shows a loading state or error — a failure (blocked site,
@@ -541,7 +572,7 @@ function renderPopular(){
     grid.appendChild(card);
 
     if (!meta.fetched) {
-      syncCardMeta(item.url, card, { needsImage: true });
+      queueCardMeta(item.url, card, { needsImage: true });
     }
   });
 
@@ -611,7 +642,7 @@ async function runSearch(){
       // data isn't exposed via that API) — only re-fetch a photo if one's
       // genuinely missing.
       if (!meta.fetched) {
-        syncCardMeta(r.url, card, { needsImage: !r.image });
+        queueCardMeta(r.url, card, { needsImage: !r.image });
       }
     });
   } catch (err) {
