@@ -25,6 +25,11 @@
 // REQUIRES: an ANTHROPIC_API_KEY environment variable set in Vercel
 // (Project Settings -> Environment Variables). Get one at console.anthropic.com.
 
+// An error whose .message is safe (and useful) to show directly to the user,
+// as opposed to a raw/unexpected exception where we don't want to leak
+// internals — see the catch block in the handler below.
+class KnownError extends Error {}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -95,7 +100,11 @@ export default async function handler(req, res) {
 
   } catch (err) {
     console.error(err);
-    return res.status(500).json({ error: 'Something went wrong extracting that recipe.' });
+    // Surface the real reason when we raised it ourselves (bad/missing API key,
+    // deprecated model, Anthropic API error, etc.) instead of masking it with a
+    // generic message — that made this impossible to debug from the frontend.
+    const message = err instanceof KnownError ? err.message : 'Something went wrong extracting that recipe. Check your Vercel function logs for details.';
+    return res.status(500).json({ error: message });
   }
 }
 
@@ -109,20 +118,47 @@ function detectPlatform(url) {
   return null;
 }
 
+// Follows a shortened TikTok share link (tiktok.com/t/..., vm.tiktok.com/...)
+// to its canonical /@user/video/123... URL. Falls back to the original URL
+// if anything goes wrong, so this never blocks the rest of the flow.
+async function resolveTikTokRedirect(url) {
+  const isShortLink = /\/t\/|vm\.tiktok\.com|vt\.tiktok\.com/i.test(url);
+  if (!isShortLink) return url;
+
+  try {
+    const r = await fetch(url, {
+      method: 'GET',
+      redirect: 'follow',
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; FocusPlateBot/1.0)' }
+    });
+    return r.url || url;
+  } catch (err) {
+    console.error('Could not resolve TikTok short link, using original URL:', err);
+    return url;
+  }
+}
+
 async function fetchCaption(url, platform) {
   if (platform === 'tiktok') {
-    // TikTok's public oEmbed endpoint returns a `title` field that's usually
-    // the video caption (truncated in some cases, but often includes the
-    // recipe if it was short enough to fit).
-    const oembedUrl = `https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`;
+    // Share links (tiktok.com/t/XXXXX, or vm.tiktok.com/XXXXX) are shortened
+    // redirects — TikTok's oEmbed endpoint frequently fails on those and
+    // needs the canonical /@user/video/123... URL instead. Resolve the
+    // redirect ourselves first.
+    const canonicalUrl = await resolveTikTokRedirect(url);
+
+    const oembedUrl = `https://www.tiktok.com/oembed?url=${encodeURIComponent(canonicalUrl)}`;
     try {
       const r = await fetch(oembedUrl, {
         headers: { 'User-Agent': 'Mozilla/5.0 (compatible; FocusPlateBot/1.0)' }
       });
-      if (!r.ok) return null;
+      if (!r.ok) {
+        console.error('TikTok oEmbed failed:', r.status, await r.text().catch(() => ''));
+        return null;
+      }
       const data = await r.json();
       return data.title || null;
-    } catch {
+    } catch (err) {
+      console.error('TikTok oEmbed request threw:', err);
       return null;
     }
   }
@@ -175,24 +211,48 @@ TEXT:
 ${rawText.slice(0, 8000)}
 """`;
 
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': process.env.ANTHROPIC_API_KEY,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: 'claude-3-5-haiku-20241022',
-      max_tokens: 2048,
-      messages: [{ role: 'user', content: prompt }],
-    }),
-  });
+  let response;
+  try {
+    response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        // .trim() guards against a stray trailing newline/space from copy-pasting
+        // the key into Vercel's env var UI, which would otherwise send an
+        // invalid key and fail with a confusing 401.
+        'x-api-key': (process.env.ANTHROPIC_API_KEY || '').trim(),
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 2048,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    });
+  } catch (networkErr) {
+    // A network-level failure (DNS, timeout, connection reset, etc.) throws
+    // here rather than giving us a response object — without this catch, that
+    // exception skipped every specific error message below and fell through
+    // to the handler's generic catch-all, which is the bug that was hiding
+    // the real cause of failures.
+    console.error('Anthropic API request failed at the network level:', networkErr);
+    throw new KnownError(`Couldn't reach the Anthropic API: ${networkErr.message}`);
+  }
 
   if (!response.ok) {
     const errBody = await response.text().catch(() => '');
     console.error('Anthropic API error:', response.status, errBody);
-    throw new Error('Recipe extraction service failed.');
+
+    if (response.status === 401) {
+      throw new KnownError('The Anthropic API key in Vercel is missing or invalid — double check ANTHROPIC_API_KEY in Project Settings > Environment Variables, then redeploy.');
+    }
+    if (response.status === 404) {
+      throw new KnownError('The AI model this app requests is unavailable for your API key — it may need to be updated to a current model name.');
+    }
+    if (response.status === 429) {
+      throw new KnownError('Rate limited or out of credits on the Anthropic API — check usage/billing at console.anthropic.com.');
+    }
+    throw new KnownError(`Recipe extraction service failed (status ${response.status}). Check your Vercel function logs for details.`);
   }
 
   const data = await response.json();
