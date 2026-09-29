@@ -142,20 +142,32 @@ overlap with the query.
   instead. Independent food blogs (the kind already in this app) are much
   less likely to do this than large media companies.
 
-**Some independent blogs can also return 403 on direct-link import**, even
-  with realistic browser headers. This is usually a WordPress security
-  plugin (Wordfence, Sucuri) blocking requests by IP address/hosting
-  provider rather than by User-Agent — since this app's fetch runs from
-  Vercel's servers, not a home internet connection, it can get caught by a
-  plugin rule that blanket-blocks known cloud-hosting IP ranges, regardless
-  of how browser-like the request headers look. Unlike the User-Agent fix
-  (which genuinely helped), this specific kind of block has no clean fix
-  from inside a lightweight serverless function — it would need a
-  residential proxy or a headless browser running somewhere with a
-  non-flagged IP, which is a bigger, different project than this one. If a
-  specific site you use often hits this consistently, the most reliable
-  workaround is pasting the recipe's text directly ("Paste text instead")
-  rather than the link.
+**On the User-Agent specifically:** this app sends a plain, honestly-labeled
+  bot User-Agent (`FocusPlateBot/1.0`), not a browser-impersonating one. That
+  was tried the other way around once — switching to a Chrome-style UA to
+  look more like a real visitor — and it made things worse, not better,
+  breaking sites (Sally's Baking Addiction, Budget Bytes) that had been
+  completely reliable. Best explanation: a datacenter server claiming a
+  Chrome UA without Chrome's actual TLS/HTTP2 fingerprint behind it reads as
+  a spoofing attempt to real bot-detection — a bigger red flag than a plain,
+  honest bot string that isn't hiding what it is. If direct-link import ever
+  seems to regress again, check this file's `BROWSER_HEADERS` first before
+  assuming something external changed.
+
+**Some independent blogs can still return 403 on direct-link import** even
+  with the honest UA. This is usually a WordPress security plugin (Wordfence,
+  Sucuri) blocking requests by IP address/hosting provider rather than by
+  User-Agent at all — since this app's fetch runs from Vercel's servers, not
+  a home internet connection, it can get caught by a plugin rule that
+  blanket-blocks known cloud-hosting IP ranges, or by a temporary IP-reputation
+  block after a burst of requests (repeated testing in a short window can
+  trigger this on its own). Neither has a clean fix from inside a
+  lightweight serverless function — the IP-range block would need a
+  residential proxy or headless browser running elsewhere (a bigger, separate
+  project), and the temporary kind usually just needs time — it tends to
+  clear on its own within hours. If a specific site you use often hits this
+  consistently, the most reliable workaround is pasting the recipe's text
+  directly ("Paste text instead") rather than the link.
 
 **On Allrecipes specifically:** re-checked while adding more sites, and it's
 still a hard block — even a direct page fetch from a completely different
