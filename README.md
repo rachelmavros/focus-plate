@@ -193,12 +193,12 @@ reads.
 matching, so on rare occasions an unusual phrasing may not get highlighted.
 Not a blocker, just something to expect.
 
-**Note on the "Popular to start" links:** I can't verify live network
-requests from my own sandbox (it's restricted to a small allowlist of
-domains), so while these URLs are correct as of my research, you're the
-first real test of whether each one still resolves and has schema.org data.
-If any ever break (sites redesign/move pages sometimes, or start blocking
-bots like Allrecipes did), swap in a fresh URL from that site.
+**Note on the "Popular to start" cards:** these no longer point at hand-typed
+URLs (see the "Popular to start" section below for why) — they're resolved
+live through the same search API used by the Search box, so a page moving
+or a site starting to block requests fixes itself automatically within 30
+days (or immediately if you clear the site's local storage) instead of
+staying broken until someone edits code.
 
 ## Photos
 - **Popular to start cards**: on first visit each card shows an emoji, then
@@ -222,13 +222,39 @@ bots like Allrecipes did), swap in a fresh URL from that site.
   of some sites' photos (Sally's Baking Addiction, notably) coming in soft.
 
 ## Popular to start
-There's a pool of 12 recipes behind this section now, not just the 4 shown
-at once — it opens to a random set of 4 each visit (so it's not always the
-same ones up top), and the ← → arrows next to the section label page
-through the rest, wrapping back around at the end. Edit the
-`POPULAR_RECIPES` list near the top of `index.html`'s `<script>` to add,
-remove, or reorder recipes — `POPULAR_PAGE_SIZE` controls how many show per
-page (4 by default).
+This used to be a hand-typed list of specific recipe URLs — the trouble was
+that even URLs looked up via web search turned out wrong often enough
+(wrong slug, page moved, site started blocking) that a noticeable chunk of
+the 12 broke over time. Live Search never had that problem, because it
+always asks each site fresh instead of trusting a URL someone typed from
+memory months ago.
+
+So Popular now works the same way Search does: instead of a list of
+{title, source, url}, `index.html` has a `POPULAR_SEARCH_TERMS` list of
+popular dish search terms (with an emoji for the placeholder look — e.g.
+`{ emoji: '🍌', term: 'banana bread' }`). Each term is resolved to a real,
+currently-working recipe by calling `/api/search-recipes` — the exact same
+endpoint the Search box uses — and taking its top result. Resolved results
+are cached in the browser's local storage for 30 days, so it's instant on
+every normal visit, and automatically re-resolved once that cache expires —
+so a broken link fixes itself over time instead of staying broken.
+
+On first load (or once a term's cache expires), that card shows a dimmed
+placeholder with its emoji and the term as a stand-in title while it
+resolves in the background — same "never show an error, just quietly
+update" spirit as the photo/rating sync. If a term genuinely can't be
+resolved (e.g. a very unusual dish name with no match on any of the sites),
+that one card is simply skipped rather than showing a dead link.
+
+There are 14 terms in the pool, not just the 4 shown at once — it opens to
+a random set of 4 each visit, and the ← → arrows next to the section label
+page through the rest, wrapping back around at the end. Edit the
+`POPULAR_SEARCH_TERMS` list near the top of `index.html`'s `<script>` to
+add, remove, or reorder terms — `POPULAR_PAGE_SIZE` controls how many show
+per page (4 by default). Since resolution goes through the same search API,
+a term is really only as good as the recipe blogs in `api/search-recipes.js`'s
+`SITES` list — pick terms you'd expect one of those sites to have a good,
+specific match for (avoid anything too niche or too generic).
 
 ## Star ratings
 When a site publishes an average rating (schema.org's `aggregateRating` —
