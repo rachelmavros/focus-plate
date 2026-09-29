@@ -76,6 +76,12 @@
   .input-row button:disabled{ opacity: 0.6; cursor: default; }
   .input-row button:active:not(:disabled){ transform: scale(0.97); }
   .hint{ font-size: 12.5px; color: var(--ink-soft); margin-top: 9px; }
+  .unsupported-note{ margin-top: 8px; font-size: 12.5px; color: var(--ink-soft); }
+  .unsupported-note summary{ cursor: pointer; color: var(--accent-deep); font-weight: 600; text-decoration: underline; list-style: none; }
+  .unsupported-note summary::-webkit-details-marker{ display: none; }
+  .unsupported-note[open] summary{ margin-bottom: 6px; }
+  .unsupported-note ul{ margin: 4px 0 4px 18px; padding: 0; }
+  .unsupported-note li{ margin: 2px 0; }
   .msg{ font-size: 13px; font-weight: 600; margin-top: 10px; display:none; }
   .msg.show{ display:block; }
   .msg.err{ color: var(--accent-deep); }
@@ -246,6 +252,29 @@
         Works on recipe blogs, TikTok/Instagram links with the recipe in the caption, or text pasted directly (from an AI chat, notes, etc.).
         <a href="#" id="modeToggle" style="text-decoration:underline; color:var(--accent-deep); font-weight:600;">Paste text instead</a>
       </div>
+      <details class="unsupported-note">
+        <summary>Which sites don't work?</summary>
+        <div>
+          A handful of big recipe sites block automated requests like this
+          app's, so pasting a link from them won't work — for these, use
+          "Paste text instead" and paste the recipe itself:
+          <ul>
+            <li>Allrecipes</li>
+            <li>Food Network</li>
+            <li>NYT Cooking</li>
+            <li>Epicurious</li>
+            <li>Delish</li>
+            <li>Taste of Home</li>
+            <li>Simply Recipes</li>
+            <li>101 Cookbooks</li>
+          </ul>
+          Smitten Kitchen is a different case — its pages just don't publish
+          the recipe data this app reads at all, regardless of blocking.
+          This list can change as sites adjust their own protections; if a
+          link you try fails, pasting the text is always the reliable
+          fallback.
+        </div>
+      </details>
     </div>
 
     <!-- PRELOADED -->
