@@ -106,6 +106,18 @@ API — a stable, public JSON interface WordPress sites expose by default,
 more reliable than scraping search-result pages) and shows matching
 results with thumbnails. Tap a result to import it, same as any other link.
 
+**Search relevance:** WordPress's built-in search matches a post's full body
+text with no real relevance ranking, so early on this surfaced a lot of
+loosely-related results — e.g. searching "french onion soup" returned a
+croutons post (mentions French onion soup in passing) and several "30 Best
+Spring Recipes"-style roundup posts (which name-drop dozens of dishes) ahead
+of anything actually about that soup. `api/search-recipes.js` now re-ranks
+results itself: it scores each result by how many of the query's words
+actually appear in the *title* (a much stronger signal than a body mention),
+drops roundup/listicle posts entirely (their titles reliably start with a
+number, like "45 Vegetable Side Dishes"), and drops anything with zero title
+overlap with the query.
+
 ## Which sites work where (an important distinction)
 - **Direct-link import** (pasting a URL, or a "Popular to start" card) works
   on almost any recipe site — NYT Cooking, Bon Appétit, every WordPress food
@@ -169,10 +181,11 @@ bots like Allrecipes did), swap in a fresh URL from that site.
   (cached in local storage after that, so it's instant on repeat visits). If
   a site is slow or blocked, the card just keeps its emoji — never shows an
   error for this, since it's a background nicety, not a user action.
-- **Recipe detail view**: shows a compact hero photo at the top (max ~140px
-  tall, so it doesn't crowd out the reading experience) when the source
-  provides one. Pasted-text and most TikTok/IG imports won't have one, since
-  there's no page to pull a photo from.
+- **Recipe detail view**: shows a small 64×64px photo in the top-right of the
+  header, next to the title, when the source provides one — kept small and
+  square on purpose so a low-res or oddly-shaped source photo never gets
+  stretched into a blurry banner. Pasted-text and most TikTok/IG imports
+  won't have one, since there's no page to pull a photo from.
 - **Per-step photos**: some recipe sites include a photo for individual
   instruction steps in their structured data (not most sites, but some do).
   When present, it shows as a small 56px thumbnail next to that step. This

@@ -158,10 +158,12 @@ function normalizeIngredients(rawList) {
     const text = decodeEntities(String(raw).trim());
 
     // Grab a leading numeric quantity (handles "1", "1 1/2", "1/2", "1-2",
-    // and unicode fraction glyphs like "1½" or "½" on their own)
+    // "2 and 1/4" / "1 and 1/2" (the word-form fraction some sites use
+    // instead of "1 1/2"), and unicode fraction glyphs like "1½" or "½" on
+    // their own)
     const FRAC = '¼½¾⅐-⅞'; // ¼ ½ ¾ ⅐ ... ⅞
     const qtyMatch = text.match(new RegExp(
-      `^((?:[\\d]+[${FRAC}]?|[${FRAC}])(?:\\s+\\d+\\/\\d+|\\.\\d+|\\/\\d+)?(?:\\s*[-–]\\s*\\d+(?:\\s+\\d+\\/\\d+|\\.\\d+|\\/\\d+)?)?)\\s*`
+      `^((?:[\\d]+[${FRAC}]?|[${FRAC}])(?:\\s+(?:and\\s+)?\\d+\\/\\d+|\\.\\d+|\\/\\d+)?(?:\\s*[-–]\\s*\\d+(?:\\s+\\d+\\/\\d+|\\.\\d+|\\/\\d+)?)?)\\s*`
     ));
     let amount = '';
     let rest = text;
@@ -185,9 +187,38 @@ function normalizeIngredients(rawList) {
       id: `ing${idx}`,
       amount: amount || null,
       name: name || text,
+      shortName: shortIngredientName(name || text),
       raw: text,
     };
   });
+}
+
+// A trimmed-down version of the ingredient name for the inline highlight
+// chip shown *within instructions* — the full ingredient list keeps every
+// detail ("3 large yellow onions, thinly sliced"), but repeating "thinly
+// sliced" or "at room temperature" every time that ingredient is mentioned
+// in a step just adds clutter, since the prep/serving note isn't needed
+// again there. The full ingredient list is untouched by this.
+const TRAILING_PREP_NOTES = new RegExp(
+  '\\s*,?\\s*\\b(' + [
+    'at room temperature', 'room temperature', 'thinly sliced', 'finely chopped', 'finely diced',
+    'finely minced', 'roughly chopped', 'coarsely chopped', 'coarsely ground', 'julienned',
+    'grated', 'shredded', 'cubed', 'halved', 'quartered', 'crushed', 'peeled', 'zested',
+    'for garnish', 'for serving', 'for finishing', 'for topping', 'for dusting', 'for drizzling',
+    'to taste', 'divided', 'plus more for serving', 'plus more to taste', 'optional',
+  ].join('|') + ')\\b.*$',
+  'i'
+);
+
+function shortIngredientName(name) {
+  if (!name) return name;
+  // Most recipe sites put prep/serving notes after a comma
+  // ("yellow onions, thinly sliced") — take just the part before it.
+  let short = name.split(',')[0].trim();
+  // A few notes show up without a comma ("fresh thyme for finishing") —
+  // strip those known trailing phrases too.
+  short = short.replace(TRAILING_PREP_NOTES, '').trim();
+  return short || name;
 }
 
 /* ----- Instructions: handle string / HowToStep[] / HowToSection[] -----

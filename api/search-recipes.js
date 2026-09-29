@@ -38,7 +38,7 @@ const SITES = [
   { name: "Love and Lemons", base: "https://www.loveandlemons.com" },
 ];
 
-const PER_SITE_RESULTS = 5;
+const PER_SITE_RESULTS = 8; // fetch more raw candidates per site since relevance filtering below will drop a chunk of them
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -51,6 +51,7 @@ export default async function handler(req, res) {
   }
 
   const query = q.trim();
+  const queryWords = significantWords(query);
 
   // Query every site in parallel; one slow/broken site shouldn't block the rest.
   const perSite = await Promise.allSettled(
@@ -64,8 +65,25 @@ export default async function handler(req, res) {
     }
   }
 
-  // Interleave results so one site doesn't dominate the top of the list
+  // WordPress's built-in search matches the full post BODY, not just the
+  // title, and has no real relevance ranking — so a post that merely
+  // mentions a query word once in passing (or a "30 Best X Recipes"
+  // roundup that name-drops dozens of dishes) ranks the same as an actual
+  // dedicated recipe for that dish. Since we only control this endpoint,
+  // not the target sites' search internals, we re-rank based on how well
+  // each result's TITLE actually matches the query, which is a much
+  // stronger relevance signal for "is this the recipe someone searched for."
+  results = results
+    .filter(r => !isRoundupTitle(r.title))
+    .map(r => ({ ...r, _score: titleMatchScore(r.title, queryWords) }))
+    .filter(r => r._score > 0); // drop titles with zero real overlap with the query
+
+  // Interleave by source first (keeps variety among equal-relevance results),
+  // then a stable sort by score brings the best title matches to the top
+  // while preserving that interleaved order within each score tier.
   results = interleaveBySource(results);
+  results.sort((a, b) => b._score - a._score);
+  results = results.map(({ _score, ...r }) => r); // strip internal field before returning
 
   return res.status(200).json({ query, results });
 }
@@ -75,6 +93,7 @@ async function searchSite(site, query) {
     `${site.base}/wp-json/wp/v2/posts` +
     `?search=${encodeURIComponent(query)}` +
     `&per_page=${PER_SITE_RESULTS}` +
+    `&orderby=relevance` +
     `&_embed=wp:featuredmedia`;
 
   try {
@@ -94,6 +113,41 @@ async function searchSite(site, query) {
     // Site blocked us, timed out, or returned something unexpected — skip it.
     return [];
   }
+}
+
+/* ============================================================
+   Relevance re-ranking (see the big comment above where this is used)
+   ============================================================ */
+const SEARCH_STOPWORDS = new Set(['the', 'a', 'an', 'and', 'or', 'with', 'of', 'for', 'to', 'in', 'on', 'best', 'easy']);
+
+function significantWords(query) {
+  return query
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(w => w.length > 2 && !SEARCH_STOPWORDS.has(w));
+}
+
+// Fraction of the query's significant words that appear as whole words in
+// the title — 1.0 means every query word showed up in the title (as close
+// to "this is the recipe" as we can tell from title text alone).
+function titleMatchScore(title, queryWords) {
+  if (!queryWords.length) return 0;
+  const t = title.toLowerCase();
+  const hits = queryWords.filter(w => new RegExp(`\\b${escapeRegex(w)}\\b`).test(t));
+  return hits.length / queryWords.length;
+}
+
+// Roundup/listicle posts ("30 Light and Bright Spring Dinner Recipes", "45
+// Vegetable Side Dishes") mention many dishes in passing and are essentially
+// never a good match for "find me the recipe for X" — they also have no
+// single structured recipe for /api/parse-recipe.js to import. Their titles
+// reliably start with a number, so that's a cheap, effective filter.
+function isRoundupTitle(title) {
+  return /^\d+\s/.test(title.trim());
+}
+
+function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function extractFeaturedImage(post) {

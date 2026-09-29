@@ -283,6 +283,7 @@ function formatExtractedRecipe(recipe, { sourceUrl, sourceName }) {
     id: `ing${idx}`,
     amount: ing.amount || null,
     name: ing.name,
+    shortName: shortIngredientName(ing.name),
     raw: ing.amount ? `${ing.amount} ${ing.name}` : ing.name,
   }));
 
@@ -302,6 +303,26 @@ function formatExtractedRecipe(recipe, { sourceUrl, sourceName }) {
     ingredients,
     steps,
   };
+}
+
+/* ----- Trimmed ingredient name for the inline instruction chip (same
+   approach as parse-recipe.js — see its comment for why) ----- */
+const TRAILING_PREP_NOTES = new RegExp(
+  '\\s*,?\\s*\\b(' + [
+    'at room temperature', 'room temperature', 'thinly sliced', 'finely chopped', 'finely diced',
+    'finely minced', 'roughly chopped', 'coarsely chopped', 'coarsely ground', 'julienned',
+    'grated', 'shredded', 'cubed', 'halved', 'quartered', 'crushed', 'peeled', 'zested',
+    'for garnish', 'for serving', 'for finishing', 'for topping', 'for dusting', 'for drizzling',
+    'to taste', 'divided', 'plus more for serving', 'plus more to taste', 'optional',
+  ].join('|') + ')\\b.*$',
+  'i'
+);
+
+function shortIngredientName(name) {
+  if (!name) return name;
+  let short = name.split(',')[0].trim();
+  short = short.replace(TRAILING_PREP_NOTES, '').trim();
+  return short || name;
 }
 
 /* ----- Match ingredients inline within each step's text (same approach as parse-recipe.js) ----- */
