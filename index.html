@@ -166,6 +166,22 @@
     font-size: 13px; font-weight: 700; padding: 8px 16px; border-radius: 999px;
   }
 
+  /* Tabs for switching between the reformatted recipe and the original,
+     unedited source text — only shown when a recipe actually has one
+     (LLM-extracted from pasted text or a TikTok/Instagram caption; blog
+     imports read structured data directly and have no separate "raw" form). */
+  .detail-tabs{ display:flex; gap: 4px; padding: 0 20px; margin-top: 16px; border-bottom: 1px solid var(--line); }
+  .detail-tab{
+    background:none; border:none; font-family: inherit; font-size: 13.5px; font-weight: 700;
+    color: var(--ink-soft); padding: 10px 4px; margin-right: 18px; cursor:pointer;
+    border-bottom: 2px solid transparent; margin-bottom: -1px;
+  }
+  .detail-tab.active{ color: var(--accent-deep); border-bottom-color: var(--accent); }
+  .raw-source{
+    margin: 20px 20px 0; padding: 16px; background: var(--card); border: 1px solid var(--line);
+    border-radius: var(--radius); white-space: pre-wrap; font-size: 15px; line-height: 1.6; color: var(--ink);
+  }
+
   .progress-wrap{ padding: 20px 22px 4px; }
   .progress-track{ height: 8px; background: var(--line); border-radius: 99px; overflow:hidden; }
   .progress-fill{ height:100%; background: var(--accent); width: 0%; border-radius: 99px; transition: width 0.4s ease; }
@@ -322,7 +338,12 @@
     <a id="d-watch-original" class="watch-original hidden" target="_blank" rel="noopener"></a>
   </div>
 
-  <main>
+  <div class="detail-tabs hidden" id="detailTabs">
+    <button class="detail-tab active" id="tabRecipeBtn">Recipe</button>
+    <button class="detail-tab" id="tabRawBtn">Raw caption</button>
+  </div>
+
+  <main id="tab-recipe">
     <div class="progress-wrap">
       <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
       <div class="progress-label" id="progressLabel"></div>
@@ -333,6 +354,11 @@
 
     <div class="steps" id="steps"></div>
   </main>
+
+  <main id="tab-raw" class="hidden">
+    <div class="raw-source" id="rawSourceText"></div>
+  </main>
+
   <footer>Reformatted for focus. Recipe &amp; photos belong to the original source — tap the link above for the full story and photos.</footer>
 </div>
 
@@ -978,6 +1004,22 @@ function openRecipe(recipe){
     watchEl.classList.add('hidden');
   }
 
+  // Only recipes extracted by the LLM (pasted text or a TikTok/Instagram
+  // caption) have a separate "raw" form to show — blog imports read
+  // structured data directly, so there's no separate original text to
+  // compare against. Always reset back to the Recipe tab on open.
+  const tabsEl = document.getElementById('detailTabs');
+  const tabRecipeBtn = document.getElementById('tabRecipeBtn');
+  const tabRawBtn = document.getElementById('tabRawBtn');
+  if (currentRecipe.rawSource) {
+    tabsEl.classList.remove('hidden');
+    document.getElementById('rawSourceText').textContent = currentRecipe.rawSource;
+    showDetailTab('recipe');
+  } else {
+    tabsEl.classList.add('hidden');
+    showDetailTab('recipe');
+  }
+
   const pills = [];
   if (currentRecipe.meta?.total) pills.push(`⏱ ${currentRecipe.meta.total}`);
   else {
@@ -995,6 +1037,16 @@ function openRecipe(recipe){
   document.getElementById('view-detail').classList.remove('hidden');
   window.scrollTo(0, 0);
 }
+
+function showDetailTab(which){
+  const isRecipe = which === 'recipe';
+  document.getElementById('tab-recipe').classList.toggle('hidden', !isRecipe);
+  document.getElementById('tab-raw').classList.toggle('hidden', isRecipe);
+  document.getElementById('tabRecipeBtn').classList.toggle('active', isRecipe);
+  document.getElementById('tabRawBtn').classList.toggle('active', !isRecipe);
+}
+document.getElementById('tabRecipeBtn').onclick = () => showDetailTab('recipe');
+document.getElementById('tabRawBtn').onclick = () => showDetailTab('raw');
 
 document.getElementById('backBtn').onclick = () => {
   document.getElementById('view-detail').classList.add('hidden');
