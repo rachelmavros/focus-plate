@@ -189,7 +189,10 @@
   .ing-amt{ color: var(--accent-deep); font-weight: 700; }
 
   .steps{ padding: 28px 22px 0; }
-  .step{ border-radius: var(--radius); background: var(--card); margin-bottom: 14px; overflow:hidden; border: 1px solid var(--line); transition: opacity 0.3s ease; }
+  .step{
+    border-radius: 4px var(--radius) var(--radius) 4px; background: var(--card); margin-bottom: 14px;
+    overflow:hidden; border: 1px solid var(--line); border-left: 4px solid var(--accent); transition: opacity 0.3s ease;
+  }
   .step.done{ opacity: 0.55; }
   .step-head{ display:flex; gap:12px; padding: 18px 16px; align-items:flex-start; }
   .step-content{ flex:1; min-width:0; }
@@ -202,9 +205,22 @@
   .step.done .step-check svg{ opacity:1; }
   .step-num{ font-size: 11.5px; font-weight: 700; color: var(--accent-deep); text-transform:uppercase; letter-spacing: 0.08em; margin-bottom: 5px; }
   .step-text{ font-size: 16.5px; font-weight: 400; }
-  .step.done .step-text{ text-decoration: line-through; text-decoration-color: var(--line); }
-  .ing-inline{ background: var(--accent-soft); color: var(--accent-deep); font-weight: 700; padding: 1px 7px; border-radius: 6px; cursor: pointer; }
-  .ing-inline.checked{ background: var(--pop-soft); color: var(--pop); text-decoration: line-through; }
+  /* Each step's text is broken into plain lines and, whenever an
+     ingredient is mentioned, its own small bulleted line with a tiny
+     checkbox — instead of one flowing paragraph with inline highlight
+     chips. Ticking an ingredient here mirrors the ingredient list
+     (checked there too), same as inline chips used to. */
+  .step-line{ font-size: 16.5px; margin: 3px 0; }
+  .step.done .step-line{ text-decoration: line-through; text-decoration-color: var(--line); }
+  .ing-line{ display:flex; align-items:baseline; gap:8px; margin:4px 0 4px 10px; cursor:pointer; }
+  .ing-checkbox{
+    width:11px; height:11px; border:1.5px solid var(--pop); border-radius:3px;
+    flex-shrink:0; position:relative; top:3px; background:transparent;
+  }
+  .ing-checkbox.checked{ background: var(--pop); }
+  .ing-line-label{ font-weight:700; color: var(--accent-deep); }
+  .ing-line-label.checked{ color: var(--ink-soft); text-decoration: line-through; }
+  .ing-line-amt{ font-weight:400; color: var(--ink-soft); font-size:13.5px; }
   .step-timer{
     margin: 0 16px 16px 56px; display:inline-flex; align-items:center; gap:6px; font-size: 12.5px;
     font-weight: 600; color: var(--ink-soft); background: var(--bg); border: 1.5px dashed var(--line);
@@ -267,7 +283,7 @@
             <li>Taste of Home</li>
             <li>Simply Recipes</li>
             <li>101 Cookbooks</li>
-            <li> smitten Kitchen</li>
+            <li>Smitten Kitchen</li>
           </ul>
           This list can change as sites adjust their own protections; if a
           link you try fails, pasting the text is always the reliable
@@ -1022,13 +1038,25 @@ function renderSteps(){
     const el = document.createElement('div');
     el.className = 'step' + (stepDone[idx] ? ' done' : '');
 
+    // Each part is either a plain text fragment (its own line) or an
+    // ingredient mention (its own small checkbox line) — rendered as
+    // separate blocks rather than one flowing paragraph with inline chips.
     const textHtml = step.parts.map(part => {
-      if (typeof part === 'string') return escapeHtml(part);
+      if (typeof part === 'string') {
+        const trimmed = part.trim();
+        if (!trimmed) return '';
+        return `<div class="step-line">${escapeHtml(trimmed)}</div>`;
+      }
       const ing = currentRecipe.ingredients.find(i => i.id === part.ing);
       if (!ing) return '';
       const checked = ingState[part.ing];
-      const label = `${ing.amount ? ing.amount + ' ' : ''}${ing.shortName || ing.name}`;
-      return `<span class="ing-inline ${checked ? 'checked' : ''}" data-id="${part.ing}">${escapeHtml(label)}</span>`;
+      const name = ing.shortName || ing.name;
+      const amtHtml = ing.amount ? `<span class="ing-line-amt">${escapeHtml(ing.amount)}</span>` : '';
+      return `<div class="ing-line" data-id="${part.ing}">
+        <span class="ing-checkbox ${checked ? 'checked' : ''}"></span>
+        <span class="ing-line-label ${checked ? 'checked' : ''}">${escapeHtml(name)}</span>
+        ${amtHtml}
+      </div>`;
     }).join('');
 
     el.innerHTML = `
@@ -1051,10 +1079,10 @@ function renderSteps(){
       updateProgress();
     };
 
-    el.querySelectorAll('.ing-inline').forEach(span => {
-      span.onclick = (e) => {
+    el.querySelectorAll('.ing-line').forEach(line => {
+      line.onclick = (e) => {
         e.stopPropagation();
-        const id = span.dataset.id;
+        const id = line.dataset.id;
         ingState[id] = !ingState[id];
         renderIngredients();
         renderSteps();
