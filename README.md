@@ -176,9 +176,13 @@ structured recipe data for Google/Pinterest, which is what `parse-recipe.js`
 reads.
 
 **Won't work:**
-- Sites that don't publish structured recipe data at all (rare, but
-  possible for smaller personal blogs or sites with broken markup) — direct
-  link import gives a clear error rather than a garbled result.
+- Sites that don't publish structured recipe data at all — direct link
+  import gives a clear error ("couldn't find structured recipe data")
+  rather than a garbled result. Less rare than you'd think: **Smitten
+  Kitchen** was tried here and removed after confirming its pages genuinely
+  have no schema.org Recipe markup at all (it's a long-running blog on an
+  older custom template, not a broken link or a fetch problem — it loads
+  fine, there's just nothing on the page in the format this app reads).
 - Non-WordPress sites in **search** specifically (see above) — search just
   quietly returns fewer results rather than erroring.
 - A search site that blocks bot traffic or disables its JSON API — that one

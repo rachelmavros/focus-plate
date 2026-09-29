@@ -40,7 +40,6 @@ const SITES = [
   // blogs like the ones above, so search works the same way. As with the
   // rest of this list, unverified from my sandbox — report any that never
   // return results and I'll swap them.
-  { name: 'Smitten Kitchen', base: 'https://smittenkitchen.com' },
   { name: 'Once Upon a Chef', base: 'https://www.onceuponachef.com' },
   { name: 'Skinnytaste', base: 'https://www.skinnytaste.com' },
   { name: "Natasha's Kitchen", base: 'https://natashaskitchen.com' },
