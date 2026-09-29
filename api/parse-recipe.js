@@ -117,6 +117,7 @@ function formatRecipe(recipe, sourceUrl) {
     sourceUrl,
     sourceName: new URL(sourceUrl).hostname.replace('www.', ''),
     image: extractImage(recipe.image),
+    rating: extractRating(recipe.aggregateRating),
     meta: {
       prep: isoDurationToText(recipe.prepTime),
       cook: isoDurationToText(recipe.cookTime),
@@ -128,12 +129,54 @@ function formatRecipe(recipe, sourceUrl) {
   };
 }
 
+// Sites often publish several sizes of the same photo in their schema.org
+// data (a WordPress responsive-image srcset baked into the JSON-LD, for
+// example) with no guaranteed ordering — picking the wrong one is what made
+// some sites' photos (Sally's Baking Addiction in particular) come in
+// blurry, since we were just grabbing whichever URL happened to be first,
+// sometimes a ~150px thumbnail. This picks the highest-resolution one
+// instead, using the ImageObject's width/height when present, or the
+// WxH baked into the filename (a common WordPress pattern, e.g.
+// "photo-1024x683.jpg") as a fallback.
 function extractImage(image) {
   if (!image) return null;
   if (typeof image === 'string') return image;
-  if (Array.isArray(image)) return extractImage(image[0]);
-  if (image.url) return image.url;
-  return null;
+  if (image.url && !Array.isArray(image)) return image.url; // single ImageObject
+  if (!Array.isArray(image)) return null;
+  if (image.length === 1) return extractImage(image[0]);
+
+  let best = null;
+  let bestScore = -1;
+  let lastUrl = null;
+  let anyDims = false;
+  for (const item of image) {
+    const url = typeof item === 'string' ? item : item?.url;
+    if (!url) continue;
+    lastUrl = url;
+    let score = 0;
+    if (typeof item === 'object' && item.width && item.height) {
+      score = Number(item.width) * Number(item.height);
+    } else {
+      const dims = /-(\d+)x(\d+)\.\w+(?:$|\?)/.exec(url);
+      if (dims) score = Number(dims[1]) * Number(dims[2]);
+    }
+    if (score > 0) anyDims = true;
+    if (score > bestScore) {
+      bestScore = score;
+      best = url;
+    }
+  }
+  // If none of the URLs had any discoverable dimensions, fall back to the
+  // last entry — sites that don't tag sizes tend to list smallest-first.
+  return anyDims ? best : (lastUrl || best);
+}
+
+function extractRating(aggregateRating) {
+  if (!aggregateRating) return null;
+  const value = parseFloat(aggregateRating.ratingValue);
+  const count = parseInt(aggregateRating.reviewCount || aggregateRating.ratingCount, 10);
+  if (!value || isNaN(value)) return null;
+  return { value, count: isNaN(count) ? null : count };
 }
 
 function isoDurationToText(iso) {

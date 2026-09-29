@@ -82,6 +82,20 @@
   .msg.load{ color: var(--pop); }
 
   .section-label{ margin: 28px 20px 0; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-soft); }
+  /* Section header variant that also holds the prev/next arrows for a
+     paginated section (e.g. "Popular to start") — overrides section-label's
+     own margin since the flex row carries the spacing instead. */
+  .section-header{ display:flex; align-items:center; justify-content:space-between; margin: 28px 20px 0; }
+  .section-header .section-label{ margin:0; }
+  .section-nav{ display:flex; gap:8px; }
+  .nav-arrow{
+    width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--line);
+    background: var(--card); color: var(--ink); font-weight: 700; font-size: 14px;
+    cursor: pointer; display:flex; align-items:center; justify-content:center;
+    transition: border-color 0.15s ease;
+  }
+  .nav-arrow:hover{ border-color: var(--accent); }
+  .nav-arrow:disabled{ opacity: 0.35; cursor: default; }
   .empty-state{ margin: 12px 20px 0; padding: 18px; text-align:center; color: var(--ink-soft); font-size: 14px; }
   .recipe-grid{ padding: 12px 20px 0; display:flex; flex-direction:column; gap: 12px; }
   .recipe-card{
@@ -100,6 +114,16 @@
   .recipe-info{ min-width:0; flex:1; }
   .recipe-info .title{ font-weight: 700; font-size: 15.5px; font-family: Georgia, serif; }
   .recipe-info .src{ font-size: 12.5px; color: var(--ink-soft); margin-top: 3px; font-weight: 600; }
+  /* Star rating + review count, styled like Google's recipe rich-result
+     snippet. Clicking it opens the recipe's own page (where the reviews
+     actually live) in a new tab, without triggering the card's normal
+     "import this recipe" click. */
+  .rating-badge{
+    font-size: 12.5px; font-weight: 700; color: var(--accent-deep); margin-top: 4px;
+    display: inline-flex; align-items: center; gap: 4px; cursor: pointer; width: fit-content;
+  }
+  .rating-badge:hover{ text-decoration: underline; }
+  .rating-badge .stars{ letter-spacing: -1px; }
   .remove-btn{
     margin-left:auto; background:none; border:none; color: var(--ink-soft); font-size: 18px;
     cursor:pointer; padding: 4px 8px; flex-shrink:0;
@@ -225,7 +249,13 @@
     </div>
 
     <!-- PRELOADED -->
-    <div class="section-label">Popular to start</div>
+    <div class="section-header">
+      <div class="section-label">Popular to start</div>
+      <div class="section-nav">
+        <button class="nav-arrow" id="popularPrevBtn" aria-label="Show previous recipes">←</button>
+        <button class="nav-arrow" id="popularNextBtn" aria-label="Show more recipes">→</button>
+      </div>
+    </div>
     <div class="recipe-grid" id="popularGrid"></div>
 
     <!-- SEARCH -->
@@ -287,24 +317,41 @@ const SEARCH_ENDPOINT = '/api/search-recipes';    // live search across a few Wo
 const LIBRARY_KEY = 'focusplate_library';
 const MAX_LIBRARY_ITEMS = 12;
 
-// A few tried-and-true recipes so the home page isn't empty on first visit.
-// Clicking one runs it through the same live parse-recipe flow as pasting
-// the link yourself — nothing here is pre-baked/fake data.
+// A larger pool of tried-and-true recipes so "Popular to start" has enough
+// to page through, not just 4 that never change. Clicking one runs it
+// through the same live parse-recipe flow as pasting the link yourself —
+// nothing here is pre-baked/fake data.
 // NOTE: a big-publisher pick (Allrecipes) was tried here before but returned
 // HTTP 402 — many large publishers now block automated fetches (Cloudflare's
 // bot-blocking/"pay per crawl" system returns 402 specifically), which
 // affects direct-link import too, not just search. Independent WordPress
 // blogs like these are much less likely to do this.
+// (The Pinch of Yum brownies pick that used to be here stopped loading —
+// the page must have moved or been taken down — swapped out. As with the
+// rest of this list, I can't verify these resolve from my own sandbox — if
+// any of the new ones break, let me know which and I'll swap it.)
 const POPULAR_RECIPES = [
   { emoji: '🍌', title: 'My Favorite Banana Bread', source: "Sally's Baking Addiction", url: 'https://sallysbakingaddiction.com/best-banana-bread-recipe/' },
   { emoji: '🍝', title: 'One Pot Creamy Mushroom Pasta', source: 'Budget Bytes', url: 'https://www.budgetbytes.com/one-pot-creamy-mushroom-pasta/' },
   { emoji: '🍜', title: 'Quick & Easy Garlic Noodles', source: 'Budget Bytes', url: 'https://www.budgetbytes.com/garlic-noodles/' },
-  { emoji: '🍫', title: 'The Best Fudgy Brownies', source: 'Pinch of Yum', url: 'https://pinchofyum.com/the-best-fudgy-brownies' },
+  { emoji: '🥑', title: 'Best Guacamole', source: 'Cookie and Kate', url: 'https://cookieandkate.com/best-guacamole-recipe/' },
+  { emoji: '🍪', title: 'The Best Chocolate Chip Cookies', source: "Sally's Baking Addiction", url: 'https://sallysbakingaddiction.com/best-chocolate-chip-cookie-recipe/' },
+  { emoji: '🍫', title: 'Fudgy Brownies', source: "Sally's Baking Addiction", url: 'https://sallysbakingaddiction.com/fudgy-brownies/' },
+  { emoji: '🍲', title: 'Best Vegetarian Chili', source: 'Cookie and Kate', url: 'https://cookieandkate.com/best-vegetarian-chili-recipe/' },
+  { emoji: '🍗', title: 'Best Baked Chicken Breast', source: 'Gimme Some Oven', url: 'https://www.gimmesomeoven.com/best-baked-chicken-breast/' },
+  { emoji: '🥗', title: 'Simple Vegetable Soup', source: 'Love and Lemons', url: 'https://www.loveandlemons.com/vegetable-soup-recipe/' },
+  { emoji: '🍚', title: 'Easy Chicken Fried Rice', source: 'Budget Bytes', url: 'https://www.budgetbytes.com/chicken-fried-rice/' },
+  { emoji: '🍪', title: '1-Bowl Vegan Chocolate Chip Cookies', source: 'Minimalist Baker', url: 'https://minimalistbaker.com/1-bowl-vegan-chocolate-chip-cookies/' },
+  { emoji: '🧈', title: 'Crispy Baked Tofu', source: 'Love and Lemons', url: 'https://www.loveandlemons.com/crispy-baked-tofu/' },
 ];
+const POPULAR_PAGE_SIZE = 4;
+let popularPageIndex = 0;
 
-// Real photos for Popular cards, fetched live in the background and cached
-// so repeat visits show images instantly. If a site is blocked or slow, the
-// card just silently keeps its emoji — never blocks or errors visibly here.
+// Cache of per-recipe-URL extras (real photo + star rating) fetched live in
+// the background for Popular and Search cards, so repeat visits/searches
+// show them instantly instead of re-fetching. If a site is blocked, slow, or
+// just doesn't publish a rating, the card silently stays as-is — this never
+// blocks or shows an error, since it's a background nicety, not a user action.
 const POPULAR_THUMBS_KEY = 'focusplate_popular_thumbs';
 
 let currentRecipe = null;
@@ -335,7 +382,7 @@ function removeFromLibrary(sourceUrl){
 /* ============== SHARED CARD RENDERING ============== */
 // One card builder used by Popular, Search results, and Recently viewed, so
 // all three look and behave identically no matter where a recipe came from.
-function makeCard({ title, source, emoji, image, onClick, onRemove }){
+function makeCard({ title, source, emoji, image, rating, ratingUrl, onClick, onRemove }){
   const card = document.createElement('div');
   card.className = 'recipe-card';
   card.innerHTML = `
@@ -343,6 +390,7 @@ function makeCard({ title, source, emoji, image, onClick, onRemove }){
     <div class="recipe-info">
       <div class="title">${escapeHtml(title)}</div>
       <div class="src">${escapeHtml(source || '')}</div>
+      ${rating ? ratingBadgeHtml(rating) : ''}
     </div>
     ${onRemove ? '<button class="remove-btn" title="Remove">✕</button>' : ''}
   `;
@@ -350,6 +398,7 @@ function makeCard({ title, source, emoji, image, onClick, onRemove }){
   if (onRemove) {
     card.querySelector('.remove-btn').onclick = (e) => { e.stopPropagation(); onRemove(); };
   }
+  if (rating && ratingUrl) wireRatingBadge(card, ratingUrl);
   return card;
 }
 
@@ -360,6 +409,39 @@ function setCardImage(card, imageUrl){
   if (thumb && !thumb.querySelector('img')) {
     thumb.innerHTML = `<img src="${imageUrl}" alt="">`;
   }
+}
+
+// Adds the star-rating badge to a card once fetched in the background
+// (search results and Popular cards render before this data is available).
+function setCardRating(card, rating, ratingUrl){
+  if (!rating) return;
+  const info = card.querySelector('.recipe-info');
+  if (!info || info.querySelector('.rating-badge')) return;
+  info.insertAdjacentHTML('beforeend', ratingBadgeHtml(rating));
+  wireRatingBadge(card, ratingUrl);
+}
+
+// Rounds to the nearest half star for a compact ★★★★☆-style display, plus
+// the review count — the same shape Google's recipe rich results show.
+function ratingBadgeHtml(rating){
+  const rounded = Math.round(rating.value * 2) / 2;
+  const full = Math.floor(rounded);
+  const half = rounded - full >= 0.5;
+  const stars = '★'.repeat(full) + (half ? '½' : '');
+  const countText = rating.count ? ` (${rating.count.toLocaleString()})` : '';
+  return `<div class="rating-badge"><span class="stars">${stars || '★'}</span> ${rating.value.toFixed(1)}${countText}</div>`;
+}
+
+// Clicking the badge opens the recipe's own page in a new tab (that's where
+// the actual reviews live) instead of triggering the card's normal
+// import-and-open behavior.
+function wireRatingBadge(card, ratingUrl){
+  const badge = card.querySelector('.rating-badge');
+  if (!badge || !ratingUrl) return;
+  badge.onclick = (e) => {
+    e.stopPropagation();
+    window.open(ratingUrl, '_blank', 'noopener');
+  };
 }
 
 function renderLibrary(){
@@ -383,51 +465,96 @@ function renderLibrary(){
   });
 }
 
-/* ============== POPULAR TO START (real recipes, fetched live on click) ============== */
-function getPopularThumbs(){
+/* ============== CARD META CACHE (photo + star rating, synced live in the
+   background for Popular and Search cards, cached so repeat visits/searches
+   don't re-fetch) ============== */
+function getCardMetaCache(){
   try { return JSON.parse(localStorage.getItem(POPULAR_THUMBS_KEY) || '{}'); }
   catch { return {}; }
+}
+
+function saveCardMeta(url, patch){
+  const cache = getCardMetaCache();
+  // Only overwrite keys we actually have a new value for — e.g. a
+  // search-result sync that's just fetching the rating shouldn't blank out
+  // an image the card was already shown with.
+  const clean = {};
+  for (const k in patch) { if (patch[k] !== undefined) clean[k] = patch[k]; }
+  cache[url] = { ...cache[url], ...clean, fetched: true };
+  localStorage.setItem(POPULAR_THUMBS_KEY, JSON.stringify(cache));
+}
+
+// Quietly fetches a recipe's real photo and star rating in the background so
+// a card can upgrade from emoji/no-rating without the user clicking it
+// first. Never shows a loading state or error — a failure (blocked site,
+// no rating published, etc.) just leaves the card as-is.
+async function syncCardMeta(url, card, { needsImage = false } = {}){
+  try {
+    const res = await fetch(`${PARSE_ENDPOINT}?url=${encodeURIComponent(url)}`);
+    if (!res.ok) { saveCardMeta(url, {}); return; }
+    const data = await res.json();
+
+    if (needsImage && data.image) setCardImage(card, data.image);
+    if (data.rating) setCardRating(card, data.rating, url);
+
+    saveCardMeta(url, {
+      image: needsImage ? (data.image || null) : undefined,
+      rating: data.rating || null,
+    });
+  } catch {
+    // Silently leave things as they are — this is a background nicety, not
+    // a user-facing action.
+  }
+}
+
+/* ============== POPULAR TO START (real recipes, fetched live on click) ============== */
+// Paginated 4 at a time (arrows below), and starts on a random page each
+// visit so it's not always the same 4 recipes up top.
+function popularTotalPages(){
+  return Math.ceil(POPULAR_RECIPES.length / POPULAR_PAGE_SIZE);
 }
 
 function renderPopular(){
   const grid = document.getElementById('popularGrid');
   grid.innerHTML = '';
-  const thumbs = getPopularThumbs();
+  const cache = getCardMetaCache();
 
-  POPULAR_RECIPES.forEach(item => {
+  const start = popularPageIndex * POPULAR_PAGE_SIZE;
+  const pageItems = POPULAR_RECIPES.slice(start, start + POPULAR_PAGE_SIZE);
+
+  pageItems.forEach(item => {
+    const meta = cache[item.url] || {};
     const card = makeCard({
       title: item.title, source: item.source, emoji: item.emoji,
-      image: thumbs[item.url] || null, // cached photo, if we've fetched one before
+      image: meta.image || null, // cached photo, if we've fetched one before
+      rating: meta.rating || null,
+      ratingUrl: item.url,
       onClick: (card) => importAndOpen(item.url, card),
     });
     grid.appendChild(card);
 
-    // No cached photo yet — quietly fetch this recipe in the background just
-    // to grab its image, so the card upgrades from emoji to a real photo
-    // without the user having to click it first. Never shows a loading state
-    // or error here; a failure (blocked site, etc.) just leaves the emoji.
-    if (!thumbs[item.url]) {
-      syncPopularThumb(item.url, card);
+    if (!meta.fetched) {
+      syncCardMeta(item.url, card, { needsImage: true });
     }
   });
+
+  const totalPages = popularTotalPages();
+  const prevBtn = document.getElementById('popularPrevBtn');
+  const nextBtn = document.getElementById('popularNextBtn');
+  prevBtn.disabled = totalPages <= 1;
+  nextBtn.disabled = totalPages <= 1;
 }
 
-async function syncPopularThumb(url, card){
-  try {
-    const res = await fetch(`${PARSE_ENDPOINT}?url=${encodeURIComponent(url)}`);
-    if (!res.ok) return;
-    const data = await res.json();
-    if (!data.image) return;
-
-    setCardImage(card, data.image);
-    const thumbs = getPopularThumbs();
-    thumbs[url] = data.image;
-    localStorage.setItem(POPULAR_THUMBS_KEY, JSON.stringify(thumbs));
-  } catch {
-    // Silently leave the emoji — this is a background nicety, not a
-    // user-facing action, so it shouldn't ever surface an error.
-  }
-}
+document.getElementById('popularPrevBtn').onclick = () => {
+  const totalPages = popularTotalPages();
+  popularPageIndex = (popularPageIndex - 1 + totalPages) % totalPages;
+  renderPopular();
+};
+document.getElementById('popularNextBtn').onclick = () => {
+  const totalPages = popularTotalPages();
+  popularPageIndex = (popularPageIndex + 1) % totalPages;
+  renderPopular();
+};
 
 /* ============== SEARCH ============== */
 const searchInput = document.getElementById('searchInput');
@@ -461,11 +588,24 @@ async function runSearch(){
     }
 
     searchResultsSection.classList.remove('hidden');
+    const cache = getCardMetaCache();
     data.results.forEach(r => {
-      searchResults.appendChild(makeCard({
-        title: r.title, source: r.source, image: r.image,
+      const meta = cache[r.url] || {};
+      const card = makeCard({
+        title: r.title, source: r.source, image: meta.image || r.image,
+        rating: meta.rating || null,
+        ratingUrl: r.url,
         onClick: (card) => importAndOpen(r.url, card),
-      }));
+      });
+      searchResults.appendChild(card);
+
+      // Search results already come with a photo from the WordPress API, so
+      // this background fetch is just to pick up the star rating (schema.org
+      // data isn't exposed via that API) — only re-fetch a photo if one's
+      // genuinely missing.
+      if (!meta.fetched) {
+        syncCardMeta(r.url, card, { needsImage: !r.image });
+      }
     });
   } catch (err) {
     searchError.textContent = err.message || 'Search failed — try again.';
@@ -767,6 +907,10 @@ function escapeHtml(str){
   return div.innerHTML;
 }
 
+// Start on a random page each visit so "Popular to start" rotates instead
+// of always showing the same 4 recipes first — the arrows still let you
+// page through the rest manually from there.
+popularPageIndex = Math.floor(Math.random() * popularTotalPages());
 renderPopular();
 renderLibrary();
 </script>

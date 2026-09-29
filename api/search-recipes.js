@@ -154,11 +154,16 @@ function extractFeaturedImage(post) {
   try {
     const media = post?._embedded?.['wp:featuredmedia']?.[0];
     if (!media) return null;
-    // Prefer a medium-sized thumbnail if available, else the full source
+    // Prefer a larger size so cards look crisp — "medium" (WordPress's
+    // default ~300px wide) was coming in soft/blurry on some sites once
+    // shown at card size. Fall back down the list only if a size is missing.
     const sizes = media?.media_details?.sizes;
+    if (sizes?.medium_large?.source_url) return sizes.medium_large.source_url;
+    if (sizes?.large?.source_url) return sizes.large.source_url;
+    if (media?.source_url) return media.source_url; // full original, always sharpest
     if (sizes?.medium?.source_url) return sizes.medium.source_url;
     if (sizes?.thumbnail?.source_url) return sizes.thumbnail.source_url;
-    return media?.source_url || null;
+    return null;
   } catch {
     return null;
   }

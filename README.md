@@ -196,6 +196,29 @@ bots like Allrecipes did), swap in a fresh URL from that site.
   When present, it shows as a small 56px thumbnail next to that step. This
   only applies to blog-link imports — LLM-extracted recipes (pasted
   text/TikTok/IG) never have step photos since there's no source photo data.
+- **Blurry photos**: if a site publishes several sizes of the same photo
+  (common on WordPress — a whole responsive srcset baked into the page's
+  recipe data), `parse-recipe.js` now picks the highest-resolution one
+  instead of just whichever URL happened to come first, which was the cause
+  of some sites' photos (Sally's Baking Addiction, notably) coming in soft.
+
+## Popular to start
+There's a pool of 12 recipes behind this section now, not just the 4 shown
+at once — it opens to a random set of 4 each visit (so it's not always the
+same ones up top), and the ← → arrows next to the section label page
+through the rest, wrapping back around at the end. Edit the
+`POPULAR_RECIPES` list near the top of `index.html`'s `<script>` to add,
+remove, or reorder recipes — `POPULAR_PAGE_SIZE` controls how many show per
+page (4 by default).
+
+## Star ratings
+When a site publishes an average rating (schema.org's `aggregateRating` —
+the same data Google's own recipe rich results pull from), Popular and
+Search cards show it the same way: `★★★★½ 4.7 (1,532)`. It's fetched live in
+the background per card and cached, same as the photos. Tapping the rating
+opens that recipe's own page in a new tab — where the actual reviews live —
+without opening the card's reader view. Not every site publishes a rating,
+so some cards simply won't show one.
 
 ## TikTok/Instagram imports
 The recipe detail view for a TikTok/IG import shows a prominent
