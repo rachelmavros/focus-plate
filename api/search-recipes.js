@@ -32,10 +32,14 @@ const SITES = [
   { name: "Budget Bytes", base: "https://www.budgetbytes.com" },
   { name: "Pinch of Yum", base: "https://pinchofyum.com" },
   { name: "Minimalist Baker", base: "https://minimalistbaker.com" },
-  { name: "Cookie and Kate", base: "https://cookieandkate.com" },
-  { name: "Gimme Some Oven", base: "https://www.gimmesomeoven.com" },
   { name: "Damn Delicious", base: "https://damndelicious.net" },
-  { name: "Love and Lemons", base: "https://www.loveandlemons.com" },
+  // Cookie and Kate, Gimme Some Oven, Love and Lemons, and The Woks of Life
+  // were all removed — real recipe pages on those sites kept returning
+  // 403s (or a page with no usable recipe data) when this app tried to
+  // fetch them, even after fixing headers and request timing. Whatever the
+  // exact cause on their end, direct-link import from them wasn't reliable,
+  // so leaving them in search would just produce results that fail on
+  // click. If you want to try one back in, add it here and test it.
   // Added for wider, more mainstream-recognizable coverage — all WordPress
   // blogs like the ones above, so search works the same way. As with the
   // rest of this list, unverified from my sandbox — report any that never
@@ -49,7 +53,6 @@ const SITES = [
   { name: 'Ambitious Kitchen', base: 'https://www.ambitiouskitchen.com' },
   // These two were live-tested (not guessed) — confirmed their wp-json
   // search API returns real results before adding them.
-  { name: 'The Woks of Life', base: 'https://thewoksoflife.com' },
   { name: 'Two Peas & Their Pod', base: 'https://www.twopeasandtheirpod.com' },
 ];
 
