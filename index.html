@@ -85,6 +85,7 @@
   }
   .recipe-card:hover{ border-color: var(--accent); }
   .recipe-card:active{ transform: scale(0.99); }
+  .recipe-card.loading{ opacity: 0.7; cursor: default; pointer-events: none; }
   .recipe-thumb{
     width: 60px; height: 60px; border-radius: 12px; flex-shrink:0; background: var(--accent-soft);
     display:flex; align-items:center; justify-content:center; font-size: 26px; overflow:hidden;
@@ -192,6 +193,9 @@
       </div>
     </div>
 
+    <div class="section-label">Popular to start</div>
+    <div class="recipe-grid" id="popularGrid"></div>
+
     <div class="section-label">Recently viewed</div>
     <div id="emptyState" class="empty-state">Paste a link above to get started — your imported recipes will show up here.</div>
     <div class="recipe-grid" id="libraryGrid"></div>
@@ -229,6 +233,15 @@ const PARSE_ENDPOINT = '/api/parse-recipe';       // blog/site links with schema
 const EXTRACT_ENDPOINT = '/api/extract-recipe';   // pasted text, or TikTok/IG links (caption -> LLM)
 const LIBRARY_KEY = 'focusplate_library';
 const MAX_LIBRARY_ITEMS = 12;
+
+// A few tried-and-true recipes so the home page isn't empty on first visit.
+// Clicking one runs it through the same live parse-recipe flow as pasting
+// the link yourself — nothing here is pre-baked/fake data.
+const POPULAR_RECIPES = [
+  { emoji: '🍌', title: 'My Favorite Banana Bread', source: "Sally's Baking Addiction", url: 'https://sallysbakingaddiction.com/best-banana-bread-recipe/' },
+  { emoji: '🍝', title: 'One Pot Creamy Mushroom Pasta', source: 'Budget Bytes', url: 'https://www.budgetbytes.com/one-pot-creamy-mushroom-pasta/' },
+  { emoji: '🍜', title: 'Quick & Easy Garlic Noodles', source: 'Budget Bytes', url: 'https://www.budgetbytes.com/garlic-noodles/' },
+];
 
 let currentRecipe = null;
 const ingState = {};
@@ -285,6 +298,49 @@ function renderLibrary(){
     };
     grid.appendChild(card);
   });
+}
+
+/* ============== POPULAR TO START (real recipes, fetched live on click) ============== */
+function renderPopular(){
+  const grid = document.getElementById('popularGrid');
+  grid.innerHTML = '';
+
+  POPULAR_RECIPES.forEach(item => {
+    const card = document.createElement('div');
+    card.className = 'recipe-card';
+    card.innerHTML = `
+      <div class="recipe-thumb">${item.emoji}</div>
+      <div class="recipe-info">
+        <div class="title">${escapeHtml(item.title)}</div>
+        <div class="src">${escapeHtml(item.source)}</div>
+      </div>
+    `;
+    card.onclick = () => openPopularRecipe(item, card);
+    grid.appendChild(card);
+  });
+}
+
+async function openPopularRecipe(item, cardEl){
+  if (cardEl.classList.contains('loading')) return; // already fetching this one
+  urlError.classList.remove('show');
+  cardEl.classList.add('loading');
+  const titleEl = cardEl.querySelector('.title');
+  const originalTitle = titleEl.textContent;
+  titleEl.innerHTML = '<span class="spinner"></span>Fetching…';
+
+  try {
+    const data = await callParse(item.url);
+    saveToLibrary(data);
+    openRecipe(data);
+  } catch (err) {
+    urlError.textContent = err.message || `Couldn't load "${item.title}" right now — try again in a moment.`;
+    urlError.classList.add('show');
+    document.querySelector('.url-box').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } finally {
+    cardEl.classList.remove('loading');
+    titleEl.textContent = originalTitle;
+    urlLoading.classList.remove('show');
+  }
 }
 
 /* ============== INPUT SUBMIT -> DETECT MODE -> CALL RIGHT BACKEND ============== */
@@ -523,6 +579,7 @@ function escapeHtml(str){
 }
 
 renderLibrary();
+renderPopular();
 </script>
 
 </body>
