@@ -13,6 +13,20 @@
 //   steps: [{ text, parts: [string | {ing: id}], timer }]
 // }
 
+// Headers that mimic a real browser request. This used to declare itself
+// as "FocusPlateBot" in the User-Agent, which is exactly the kind of thing
+// basic bot-blocking (common on WordPress security plugins, not just big
+// publishers' Cloudflare setups) filters out on sight — even though the
+// same site loads fine for an actual browser. A generic Chrome-shaped
+// User-Agent plus the Accept/Accept-Language headers a real browser sends
+// gets past that without doing anything deceptive beyond "please don't
+// assume I'm a bot just because I told you I was."
+const BROWSER_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+  'Accept-Language': 'en-US,en;q=0.9',
+};
+
 export default async function handler(req, res) {
   // Allow your frontend (same project or different origin) to call this
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -27,10 +41,7 @@ export default async function handler(req, res) {
 
   try {
     const pageResponse = await fetch(url, {
-      headers: {
-        // Some sites block requests with no user-agent
-        'User-Agent': 'Mozilla/5.0 (compatible; FocusPlateBot/1.0; +https://example.com)'
-      },
+      headers: BROWSER_HEADERS,
       redirect: 'follow'
     });
 

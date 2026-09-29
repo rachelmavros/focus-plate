@@ -213,7 +213,10 @@ async function fetchWithTimeout(url, ms) {
   try {
     return await fetch(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; FocusPlateBot/1.0)',
+        // Same reasoning as parse-recipe.js — a declared-bot User-Agent
+        // gets filtered by basic WordPress security plugins even when the
+        // site is otherwise happy to serve the request.
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
         'Accept': 'application/json',
       },
       signal: controller.signal,

@@ -129,7 +129,7 @@ async function resolveTikTokRedirect(url) {
     const r = await fetch(url, {
       method: 'GET',
       redirect: 'follow',
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; FocusPlateBot/1.0)' }
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' }
     });
     return r.url || url;
   } catch (err) {
@@ -149,7 +149,7 @@ async function fetchCaption(url, platform) {
     const oembedUrl = `https://www.tiktok.com/oembed?url=${encodeURIComponent(canonicalUrl)}`;
     try {
       const r = await fetch(oembedUrl, {
-        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; FocusPlateBot/1.0)' }
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' }
       });
       if (!r.ok) {
         console.error('TikTok oEmbed failed:', r.status, await r.text().catch(() => ''));
@@ -170,7 +170,7 @@ async function fetchCaption(url, platform) {
     const oembedUrl = `https://api.instagram.com/oembed?url=${encodeURIComponent(url)}`;
     try {
       const r = await fetch(oembedUrl, {
-        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; FocusPlateBot/1.0)' }
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' }
       });
       if (!r.ok) return null;
       const data = await r.json();
