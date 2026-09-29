@@ -1,310 +1,258 @@
-// /api/extract-recipe.js
+// /api/parse-recipe.js
 //
-// Vercel Serverless Function — handles two input modes that DON'T have
-// schema.org structured data to lean on:
-//   1. Raw pasted text (copied from an AI chat, a text message, a note, etc.)
-//   2. A TikTok/Instagram link — we try to pull the caption text via oEmbed,
-//      then run that caption through the same LLM extraction as pasted text.
+// Vercel Serverless Function — no build step needed, Vercel auto-detects
+// anything in /api as a function on deploy.
 //
-// Both paths end up calling Anthropic's API to turn free text into the same
-// recipe JSON shape /api/parse-recipe.js produces, so the frontend can
-// render either source identically.
+// USAGE (once deployed):
+//   GET /api/parse-recipe?url=https://example.com/some-recipe
 //
-// USAGE:
-//   POST /api/extract-recipe
-//   body: { text: "..." }                     -> straight text extraction
-//   body: { socialUrl: "https://tiktok.com/..." } -> fetch caption, then extract
-//
-// Returns JSON shaped like parse-recipe.js's output:
+// Returns JSON shaped like:
 // {
 //   title, sourceUrl, sourceName, image, meta: { prep, cook, total, yield },
 //   ingredients: [{ id, amount, name, raw }],
 //   steps: [{ text, parts: [string | {ing: id}], timer }]
 // }
-//
-// REQUIRES: an ANTHROPIC_API_KEY environment variable set in Vercel
-// (Project Settings -> Environment Variables). Get one at console.anthropic.com.
-
-// An error whose .message is safe (and useful) to show directly to the user,
-// as opposed to a raw/unexpected exception where we don't want to leak
-// internals — see the catch block in the handler below.
-class KnownError extends Error {}
 
 export default async function handler(req, res) {
+  // Allow your frontend (same project or different origin) to call this
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Use POST for this endpoint.' });
-  }
+  const { url } = req.query;
 
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return res.status(500).json({
-      error: 'Text/link import isn\'t set up yet — this needs an ANTHROPIC_API_KEY added in Vercel\'s Environment Variables.'
-    });
-  }
-
-  const { text, socialUrl } = req.body || {};
-
-  if (!text && !socialUrl) {
-    return res.status(400).json({ error: 'Provide either "text" (pasted recipe) or "socialUrl" (a TikTok/Instagram link).' });
+  if (!url || !isValidUrl(url)) {
+    return res.status(400).json({ error: 'Please provide a valid ?url= parameter.' });
   }
 
   try {
-    let rawText = text;
-    let sourceUrl = null;
-    let sourceName = 'Pasted recipe';
-    let platform = null;
+    const pageResponse = await fetch(url, {
+      headers: {
+        // Some sites block requests with no user-agent
+        'User-Agent': 'Mozilla/5.0 (compatible; FocusPlateBot/1.0; +https://example.com)'
+      },
+      redirect: 'follow'
+    });
 
-    if (socialUrl) {
-      if (!isValidUrl(socialUrl)) {
-        return res.status(400).json({ error: 'That link doesn\'t look valid.' });
-      }
-      platform = detectPlatform(socialUrl);
-      if (!platform) {
-        return res.status(400).json({
-          error: 'That link isn\'t a TikTok or Instagram URL. Paste the recipe text directly instead.'
-        });
-      }
-
-      const caption = await fetchCaption(socialUrl, platform);
-      if (!caption) {
-        return res.status(422).json({
-          error: `Couldn't pull the caption text from that ${platform === 'tiktok' ? 'TikTok' : 'Instagram'} link — it may be private, or the recipe might only be spoken/shown on screen rather than in the caption. Try copying the caption text and pasting it directly instead.`
-        });
-      }
-
-      rawText = caption;
-      sourceUrl = socialUrl;
-      sourceName = platform === 'tiktok' ? 'TikTok' : 'Instagram';
+    if (!pageResponse.ok) {
+      return res.status(502).json({ error: `Could not fetch that page (status ${pageResponse.status}).` });
     }
 
-    if (!rawText || rawText.trim().length < 20) {
-      return res.status(422).json({
-        error: 'That doesn\'t look like enough text to contain a recipe.'
-      });
-    }
-
-    const recipe = await extractRecipeWithLLM(rawText);
+    const html = await pageResponse.text();
+    const recipe = extractRecipeSchema(html);
 
     if (!recipe) {
       return res.status(422).json({
-        error: 'Couldn\'t find a clear recipe (ingredients + steps) in that text.'
+        error: "We couldn't find structured recipe data on that page. This site might not support auto-import yet — try a different recipe blog."
       });
     }
 
-    const formatted = formatExtractedRecipe(recipe, { sourceUrl, sourceName });
+    const formatted = formatRecipe(recipe, url);
     return res.status(200).json(formatted);
 
   } catch (err) {
     console.error(err);
-    // Surface the real reason when we raised it ourselves (bad/missing API key,
-    // deprecated model, Anthropic API error, etc.) instead of masking it with a
-    // generic message — that made this impossible to debug from the frontend.
-    const message = err instanceof KnownError ? err.message : 'Something went wrong extracting that recipe. Check your Vercel function logs for details.';
-    return res.status(500).json({ error: message });
+    return res.status(500).json({ error: 'Something went wrong fetching or parsing that recipe.' });
   }
 }
 
 /* ============================================================
-   Detect platform + fetch caption via oEmbed
+   STEP 1: Pull schema.org Recipe JSON-LD out of the raw HTML
    ============================================================ */
-function detectPlatform(url) {
-  const host = new URL(url).hostname.replace('www.', '');
-  if (host.includes('tiktok.com')) return 'tiktok';
-  if (host.includes('instagram.com')) return 'instagram';
+function extractRecipeSchema(html) {
+  const scriptRegex = /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+  let match;
+  const candidates = [];
+
+  while ((match = scriptRegex.exec(html)) !== null) {
+    try {
+      const json = JSON.parse(match[1].trim());
+      candidates.push(json);
+    } catch (e) {
+      // Some sites embed multiple JSON objects or malformed JSON — skip those blocks
+      continue;
+    }
+  }
+
+  // JSON-LD can be: a single object, an array, or wrapped in @graph
+  for (const candidate of candidates) {
+    const found = findRecipeNode(candidate);
+    if (found) return found;
+  }
   return null;
 }
 
-// Follows a shortened TikTok share link (tiktok.com/t/..., vm.tiktok.com/...)
-// to its canonical /@user/video/123... URL. Falls back to the original URL
-// if anything goes wrong, so this never blocks the rest of the flow.
-async function resolveTikTokRedirect(url) {
-  const isShortLink = /\/t\/|vm\.tiktok\.com|vt\.tiktok\.com/i.test(url);
-  if (!isShortLink) return url;
+function findRecipeNode(node) {
+  if (!node) return null;
 
-  try {
-    const r = await fetch(url, {
-      method: 'GET',
-      redirect: 'follow',
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; FocusPlateBot/1.0)' }
-    });
-    return r.url || url;
-  } catch (err) {
-    console.error('Could not resolve TikTok short link, using original URL:', err);
-    return url;
-  }
-}
-
-async function fetchCaption(url, platform) {
-  if (platform === 'tiktok') {
-    // Share links (tiktok.com/t/XXXXX, or vm.tiktok.com/XXXXX) are shortened
-    // redirects — TikTok's oEmbed endpoint frequently fails on those and
-    // needs the canonical /@user/video/123... URL instead. Resolve the
-    // redirect ourselves first.
-    const canonicalUrl = await resolveTikTokRedirect(url);
-
-    const oembedUrl = `https://www.tiktok.com/oembed?url=${encodeURIComponent(canonicalUrl)}`;
-    try {
-      const r = await fetch(oembedUrl, {
-        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; FocusPlateBot/1.0)' }
-      });
-      if (!r.ok) {
-        console.error('TikTok oEmbed failed:', r.status, await r.text().catch(() => ''));
-        return null;
-      }
-      const data = await r.json();
-      return data.title || null;
-    } catch (err) {
-      console.error('TikTok oEmbed request threw:', err);
-      return null;
+  if (Array.isArray(node)) {
+    for (const item of node) {
+      const found = findRecipeNode(item);
+      if (found) return found;
     }
-  }
-
-  if (platform === 'instagram') {
-    // Instagram's oEmbed requires an access token for most apps now, and
-    // frequently doesn't return caption text even when it succeeds. We try
-    // it, but this is expected to fail often — that's a known limitation.
-    const oembedUrl = `https://api.instagram.com/oembed?url=${encodeURIComponent(url)}`;
-    try {
-      const r = await fetch(oembedUrl, {
-        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; FocusPlateBot/1.0)' }
-      });
-      if (!r.ok) return null;
-      const data = await r.json();
-      return data.title || null;
-    } catch {
-      return null;
-    }
-  }
-
-  return null;
-}
-
-/* ============================================================
-   LLM extraction: free text -> structured recipe
-   ============================================================ */
-async function extractRecipeWithLLM(rawText) {
-  const prompt = `Extract a recipe from the text below and return ONLY valid JSON (no markdown fences, no commentary) matching exactly this shape:
-
-{
-  "title": string,
-  "prep": string | null,       // e.g. "15 min", null if not stated
-  "cook": string | null,
-  "total": string | null,
-  "yield": string | null,      // e.g. "4 servings"
-  "ingredients": [ { "amount": string | null, "name": string } ],
-  "steps": [ string ]          // each a single instruction, split into reasonably short steps
-}
-
-Rules:
-- If the text is not actually a recipe (no ingredients/steps you can identify), return exactly: {"error": "not_a_recipe"}
-- Keep ingredient "name" as just the ingredient (e.g. "flour", not "2 cups flour") and put the quantity in "amount".
-- Break long run-on instructions into multiple shorter steps.
-- Do not invent ingredients, quantities, or steps that aren't in the text.
-- Return raw JSON only.
-
-TEXT:
-"""
-${rawText.slice(0, 8000)}
-"""`;
-
-  let response;
-  try {
-    response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        // .trim() guards against a stray trailing newline/space from copy-pasting
-        // the key into Vercel's env var UI, which would otherwise send an
-        // invalid key and fail with a confusing 401.
-        'x-api-key': (process.env.ANTHROPIC_API_KEY || '').trim(),
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 2048,
-        messages: [{ role: 'user', content: prompt }],
-      }),
-    });
-  } catch (networkErr) {
-    // A network-level failure (DNS, timeout, connection reset, etc.) throws
-    // here rather than giving us a response object — without this catch, that
-    // exception skipped every specific error message below and fell through
-    // to the handler's generic catch-all, which is the bug that was hiding
-    // the real cause of failures.
-    console.error('Anthropic API request failed at the network level:', networkErr);
-    throw new KnownError(`Couldn't reach the Anthropic API: ${networkErr.message}`);
-  }
-
-  if (!response.ok) {
-    const errBody = await response.text().catch(() => '');
-    console.error('Anthropic API error:', response.status, errBody);
-
-    if (response.status === 401) {
-      throw new KnownError('The Anthropic API key in Vercel is missing or invalid — double check ANTHROPIC_API_KEY in Project Settings > Environment Variables, then redeploy.');
-    }
-    if (response.status === 404) {
-      throw new KnownError('The AI model this app requests is unavailable for your API key — it may need to be updated to a current model name.');
-    }
-    if (response.status === 429) {
-      throw new KnownError('Rate limited or out of credits on the Anthropic API — check usage/billing at console.anthropic.com.');
-    }
-    throw new KnownError(`Recipe extraction service failed (status ${response.status}). Check your Vercel function logs for details.`);
-  }
-
-  const data = await response.json();
-  const textBlock = data.content?.find(b => b.type === 'text');
-  if (!textBlock) return null;
-
-  let parsed;
-  try {
-    // Strip accidental markdown fences just in case
-    const cleaned = textBlock.text.trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '');
-    parsed = JSON.parse(cleaned);
-  } catch {
     return null;
   }
 
-  if (parsed.error === 'not_a_recipe') return null;
-  if (!parsed.ingredients?.length || !parsed.steps?.length) return null;
+  if (typeof node === 'object') {
+    const type = node['@type'];
+    const types = Array.isArray(type) ? type : [type];
+    if (types.includes('Recipe')) return node;
 
-  return parsed;
+    if (node['@graph']) return findRecipeNode(node['@graph']);
+  }
+
+  return null;
 }
 
 /* ============================================================
-   Reshape LLM output into the app's recipe object, reusing the
-   same ingredient-inline-highlighting logic as parse-recipe.js
+   STEP 2: Normalize the raw schema into our app's shape
    ============================================================ */
-function formatExtractedRecipe(recipe, { sourceUrl, sourceName }) {
-  const ingredients = recipe.ingredients.map((ing, idx) => ({
-    id: `ing${idx}`,
-    amount: ing.amount || null,
-    name: ing.name,
-    raw: ing.amount ? `${ing.amount} ${ing.name}` : ing.name,
-  }));
-
-  const steps = recipe.steps.map(stepText => buildStepParts(stepText, ingredients));
+function formatRecipe(recipe, sourceUrl) {
+  const ingredients = normalizeIngredients(recipe.recipeIngredient || recipe.ingredients || []);
+  const rawSteps = normalizeInstructions(recipe.recipeInstructions);
+  const steps = rawSteps.map(stepText => buildStepParts(stepText, ingredients));
 
   return {
-    title: recipe.title || 'Untitled Recipe',
-    sourceUrl: sourceUrl || null,
-    sourceName: sourceName || 'Pasted recipe',
-    image: null,
+    title: decodeEntities(recipe.name || 'Untitled Recipe'),
+    sourceUrl,
+    sourceName: new URL(sourceUrl).hostname.replace('www.', ''),
+    image: extractImage(recipe.image),
     meta: {
-      prep: recipe.prep || null,
-      cook: recipe.cook || null,
-      total: recipe.total || null,
-      yield: recipe.yield || null,
+      prep: isoDurationToText(recipe.prepTime),
+      cook: isoDurationToText(recipe.cookTime),
+      total: isoDurationToText(recipe.totalTime),
+      yield: recipe.recipeYield ? String(recipe.recipeYield) : null,
     },
     ingredients,
     steps,
   };
 }
 
-/* ----- Match ingredients inline within each step's text (same approach as parse-recipe.js) ----- */
+function extractImage(image) {
+  if (!image) return null;
+  if (typeof image === 'string') return image;
+  if (Array.isArray(image)) return extractImage(image[0]);
+  if (image.url) return image.url;
+  return null;
+}
+
+function isoDurationToText(iso) {
+  if (!iso) return null;
+  // Matches ISO 8601 durations like PT1H15M
+  const match = /PT(?:(\d+)H)?(?:(\d+)M)?/.exec(iso);
+  if (!match) return null;
+  const hours = match[1] ? parseInt(match[1]) : 0;
+  const mins = match[2] ? parseInt(match[2]) : 0;
+  if (!hours && !mins) return null;
+  let text = '';
+  if (hours) text += `${hours} hr `;
+  if (mins) text += `${mins} min`;
+  return text.trim();
+}
+
+/* ----- Ingredients: split "1 1/2 cups mashed banana" into amount + name ----- */
+function normalizeIngredients(rawList) {
+  const UNIT_PATTERN = /^(cups?|tablespoons?|tbsp\.?|teaspoons?|tsp\.?|ounces?|oz\.?|pounds?|lbs?\.?|grams?|g|kilograms?|kg|milliliters?|ml|liters?|l|cloves?|slices?|cans?|packages?|pinch(es)?|stick(s)?|large|medium|small)$/i;
+
+  return rawList.map((raw, idx) => {
+    const text = decodeEntities(String(raw).trim());
+
+    // Grab a leading numeric quantity (handles "1", "1 1/2", "1/2", "1-2",
+    // and unicode fraction glyphs like "1½" or "½" on their own)
+    const FRAC = '¼½¾⅐-⅞'; // ¼ ½ ¾ ⅐ ... ⅞
+    const qtyMatch = text.match(new RegExp(
+      `^((?:[\\d]+[${FRAC}]?|[${FRAC}])(?:\\s+\\d+\\/\\d+|\\.\\d+|\\/\\d+)?(?:\\s*[-–]\\s*\\d+(?:\\s+\\d+\\/\\d+|\\.\\d+|\\/\\d+)?)?)\\s*`
+    ));
+    let amount = '';
+    let rest = text;
+
+    if (qtyMatch) {
+      amount = qtyMatch[1].trim();
+      rest = text.slice(qtyMatch[0].length).trim();
+    }
+
+    // Grab a unit immediately following the quantity, if present
+    const words = rest.split(' ');
+    if (words.length && UNIT_PATTERN.test(words[0].replace(/[(),.]/g, ''))) {
+      amount = amount ? `${amount} ${words[0]}` : words[0];
+      rest = words.slice(1).join(' ');
+    }
+
+    // Strip parenthetical asides like "(softened)" from the display name but keep core noun
+    const name = rest.replace(/\s*\([^)]*\)\s*/g, ' ').trim() || rest;
+
+    return {
+      id: `ing${idx}`,
+      amount: amount || null,
+      name: name || text,
+      raw: text,
+    };
+  });
+}
+
+/* ----- Instructions: handle string / HowToStep[] / HowToSection[] ----- */
+function normalizeInstructions(instructions) {
+  if (!instructions) return [];
+  let rawSteps = [];
+
+  if (typeof instructions === 'string') {
+    rawSteps = decodeEntities(instructions)
+      .split(/\n+|(?:\d+\.\s)/)
+      .map(s => s.trim())
+      .filter(Boolean);
+  } else if (Array.isArray(instructions)) {
+    const steps = [];
+    for (const item of instructions) {
+      if (typeof item === 'string') {
+        steps.push(decodeEntities(item.trim()));
+      } else if (item['@type'] === 'HowToSection' && Array.isArray(item.itemListElement)) {
+        steps.push(...normalizeInstructions(item.itemListElement));
+      } else if (item.text) {
+        steps.push(decodeEntities(item.text.trim()));
+      }
+    }
+    rawSteps = steps.filter(Boolean);
+  }
+
+  // Many recipe sites cram several actions into one long instruction paragraph.
+  // Break those up into shorter, more scannable sub-steps.
+  const expanded = [];
+  for (const step of rawSteps) {
+    expanded.push(...splitLongStep(step));
+  }
+  return expanded;
+}
+
+// Splits a long paragraph-style instruction into shorter chunks, grouping
+// sentences together up to a target length rather than one-sentence-per-step
+// (which would be too choppy for short sentences).
+function splitLongStep(text, targetLen = 140) {
+  if (text.length <= targetLen) return [text];
+
+  // Split into sentences, being careful not to break on common abbreviations
+  const sentences = text
+    .replace(/\b(Tbsp|tbsp|tsp|oz|lb|min|hr|approx|e\.g)\./g, '$1__DOT__')
+    .split(/(?<=[.!?])\s+(?=[A-Z])/)
+    .map(s => s.replace(/__DOT__/g, '.').trim())
+    .filter(Boolean);
+
+  if (sentences.length <= 1) return [text];
+
+  const chunks = [];
+  let current = '';
+  for (const sentence of sentences) {
+    if (current && (current.length + sentence.length + 1) > targetLen) {
+      chunks.push(current.trim());
+      current = sentence;
+    } else {
+      current = current ? `${current} ${sentence}` : sentence;
+    }
+  }
+  if (current) chunks.push(current.trim());
+  return chunks;
+}
+
+/* ----- Match ingredients inline within each step's text ----- */
 const STOPWORDS = new Set(['of', 'and', 'to', 'taste', 'the', 'a', 'an', 'or', 'plus']);
 
 function buildStepParts(stepText, ingredients) {
@@ -315,6 +263,7 @@ function buildStepParts(stepText, ingredients) {
     .filter(ing => ing.candidates.length > 0);
 
   let remaining = stepText;
+  let offset = 0; // tracks position of `remaining` within the original stepText
   const parts = [];
   const matchedIds = new Set();
 
@@ -331,7 +280,7 @@ function buildStepParts(stepText, ingredients) {
           earliestIdx = idx;
           earliest = m;
           earliestLen = candidate.length;
-          break;
+          break; // candidates are ordered longest/most-specific first; take first hit
         }
       }
     }
@@ -353,11 +302,13 @@ function buildStepParts(stepText, ingredients) {
   return { parts, timer, rawText: stepText };
 }
 
-// Every individual word is a candidate, not just the last one — recipe
-// steps sometimes refer to an ingredient by its generic noun ("the butter"
-// for "unsalted butter") and sometimes by its distinctive/brand-like word
-// instead ("Worcestershire" or "Dijon" for "Worcestershire sauce" / "Dijon
-// mustard"), so both directions need to be checked.
+// Builds a list of match candidates for an ingredient name, ordered from most
+// specific (full name) to least specific (any single meaningful word), since
+// recipe steps often refer to ingredients more casually than the ingredient
+// list does — sometimes by the generic noun ("the butter" for "unsalted
+// butter"), sometimes by the distinctive/brand-like word instead of the noun
+// ("Worcestershire" or "Dijon" for "Worcestershire sauce" / "Dijon mustard").
+// So every individual word is a candidate, not just the last one.
 function keywordCandidates(name) {
   const cleaned = name
     .replace(/\b(fresh|freshly|chopped|minced|sliced|diced|softened|melted|grated|packed|large|small|medium|whole|room temperature|optional|to taste|cracked|granulated|unsalted|salted)\b/gi, '')
@@ -402,4 +353,41 @@ function isValidUrl(str) {
   } catch {
     return false;
   }
+}
+
+// Recipe text from JSON-LD often contains HTML entities (&#8220; &amp; etc.)
+// and stray HTML tags. Decode/strip them so steps read as clean plain text.
+function decodeEntities(str) {
+  if (!str) return str;
+  return str
+    // strip any leftover HTML tags (e.g. <a>, <strong>) some sites embed in steps
+    .replace(/<[^>]+>/g, '')
+    // numeric entities: decimal (&#8220;) and hex (&#x201C;)
+    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(parseInt(n, 10)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, n) => String.fromCodePoint(parseInt(n, 16)))
+    // named fraction entities some sites use instead of unicode glyphs directly
+    .replace(/&frac12;/g, '½')
+    .replace(/&frac14;/g, '¼')
+    .replace(/&frac34;/g, '¾')
+    .replace(/&frac13;/g, '⅓')
+    .replace(/&frac23;/g, '⅔')
+    .replace(/&frac18;/g, '⅛')
+    .replace(/&frac38;/g, '⅜')
+    .replace(/&frac58;/g, '⅝')
+    .replace(/&frac78;/g, '⅞')
+    // common named entities
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'")
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&hellip;/g, '…')
+    .replace(/&mdash;/g, '—')
+    .replace(/&ndash;/g, '–')
+    .replace(/&rsquo;|&lsquo;/g, "'")
+    .replace(/&rdquo;|&ldquo;/g, '"')
+    // collapse any double spaces left behind
+    .replace(/\s{2,}/g, ' ')
+    .trim();
 }

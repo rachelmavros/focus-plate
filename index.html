@@ -46,37 +46,37 @@
 
   main{ max-width: 560px; margin: 0 auto; padding: 4px 0 80px; }
 
-  .url-box{
+  .box{
     margin: 20px 20px 0; background: var(--card); border: 1px solid var(--line);
     border-radius: var(--radius); padding: 18px;
   }
-  .url-box label{ font-size: 12px; font-weight: 700; color: var(--accent-deep); text-transform: uppercase; letter-spacing: 0.08em; }
-  .url-row{ display:flex; gap: 8px; margin-top: 10px; }
-  .url-row input{
+  .box label{ font-size: 12px; font-weight: 700; color: var(--accent-deep); text-transform: uppercase; letter-spacing: 0.08em; }
+  .input-row{ display:flex; gap: 8px; margin-top: 10px; }
+  .input-row input{
     flex:1; border: 1.5px solid var(--line); background: var(--bg); border-radius: 10px;
     padding: 11px 14px; font-size: 15px; font-family: inherit; outline: none; min-width: 0; color: var(--ink);
   }
-  .url-row input:focus{ border-color: var(--accent); }
+  .input-row input:focus{ border-color: var(--accent); }
   #textInput{
     width:100%; margin-top: 10px; border: 1.5px solid var(--line); background: var(--bg);
     border-radius: 10px; padding: 11px 14px; font-size: 15px; font-family: inherit; outline: none;
     color: var(--ink); resize: vertical; min-height: 110px; line-height:1.5;
   }
   #textInput:focus{ border-color: var(--accent); }
-  .url-row button{
+  .input-row button{
     background: var(--accent); color: white; border: none; border-radius: 10px;
     padding: 0 20px; font-weight: 700; font-size: 15px; cursor: pointer; flex-shrink:0;
   }
-  .url-row button:disabled{ opacity: 0.6; cursor: default; }
-  .url-row button:active:not(:disabled){ transform: scale(0.97); }
-  .url-hint{ font-size: 12.5px; color: var(--ink-soft); margin-top: 9px; }
-  .url-error{ font-size: 13px; color: var(--accent-deep); font-weight: 600; margin-top: 10px; display:none; }
-  .url-error.show{ display:block; }
-  .url-loading{ font-size: 13px; color: var(--pop); font-weight: 600; margin-top: 10px; display:none; }
-  .url-loading.show{ display:block; }
+  .input-row button:disabled{ opacity: 0.6; cursor: default; }
+  .input-row button:active:not(:disabled){ transform: scale(0.97); }
+  .hint{ font-size: 12.5px; color: var(--ink-soft); margin-top: 9px; }
+  .msg{ font-size: 13px; font-weight: 600; margin-top: 10px; display:none; }
+  .msg.show{ display:block; }
+  .msg.err{ color: var(--accent-deep); }
+  .msg.load{ color: var(--pop); }
 
   .section-label{ margin: 28px 20px 0; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-soft); }
-  .empty-state{ margin: 12px 20px 0; padding: 24px; text-align:center; color: var(--ink-soft); font-size: 14px; }
+  .empty-state{ margin: 12px 20px 0; padding: 18px; text-align:center; color: var(--ink-soft); font-size: 14px; }
   .recipe-grid{ padding: 12px 20px 0; display:flex; flex-direction:column; gap: 12px; }
   .recipe-card{
     background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
@@ -85,12 +85,13 @@
   }
   .recipe-card:hover{ border-color: var(--accent); }
   .recipe-card:active{ transform: scale(0.99); }
-  .recipe-card.loading{ opacity: 0.7; cursor: default; pointer-events: none; }
+  .recipe-card.loading{ opacity: 0.6; cursor: default; pointer-events: none; }
   .recipe-thumb{
     width: 60px; height: 60px; border-radius: 12px; flex-shrink:0; background: var(--accent-soft);
     display:flex; align-items:center; justify-content:center; font-size: 26px; overflow:hidden;
   }
   .recipe-thumb img{ width:100%; height:100%; object-fit:cover; }
+  .recipe-info{ min-width:0; flex:1; }
   .recipe-info .title{ font-weight: 700; font-size: 15.5px; font-family: Georgia, serif; }
   .recipe-info .src{ font-size: 12.5px; color: var(--ink-soft); margin-top: 3px; font-weight: 600; }
   .remove-btn{
@@ -178,26 +179,46 @@
   </div>
 
   <main>
-    <div class="url-box">
-      <label>Paste a recipe link, a TikTok/IG link, or the recipe text itself</label>
-      <div class="url-row">
+    <!-- SEARCH -->
+    <div class="box">
+      <label>Search recipes</label>
+      <div class="input-row">
+        <input type="text" id="searchInput" placeholder="e.g. chocolate chip, pasta, banana…">
+        <button id="searchBtn">Search</button>
+      </div>
+      <div class="msg load" id="searchLoading"><span class="spinner"></span>Searching…</div>
+      <div class="msg err" id="searchError"></div>
+      <div class="hint">Searches across a few trusted recipe blogs live.</div>
+    </div>
+
+    <div id="searchResultsSection" class="hidden">
+      <div class="section-label">Search results</div>
+      <div class="recipe-grid" id="searchResults"></div>
+    </div>
+
+    <!-- PASTE LINK / TIKTOK-IG LINK / TEXT -->
+    <div class="box" id="pasteBox">
+      <label>Or paste a recipe link, a TikTok/IG link, or the recipe text itself</label>
+      <div class="input-row">
         <input type="text" id="urlInput" placeholder="Link, or paste recipe text…">
         <button id="urlGoBtn">Go</button>
       </div>
       <textarea id="textInput" class="hidden" placeholder="Paste the recipe text here (from a chat, a note, a caption, etc.)"></textarea>
-      <div class="url-loading" id="urlLoading"><span class="spinner"></span><span id="urlLoadingText">Fetching &amp; reformatting…</span></div>
-      <div class="url-error" id="urlError"></div>
-      <div class="url-hint">
+      <div class="msg load" id="urlLoading"><span class="spinner"></span><span id="urlLoadingText">Fetching &amp; reformatting…</span></div>
+      <div class="msg err" id="urlError"></div>
+      <div class="hint">
         Works on recipe blogs, TikTok/Instagram links with the recipe in the caption, or text pasted directly (from an AI chat, notes, etc.).
         <a href="#" id="modeToggle" style="text-decoration:underline; color:var(--accent-deep); font-weight:600;">Paste text instead</a>
       </div>
     </div>
 
+    <!-- PRELOADED -->
     <div class="section-label">Popular to start</div>
     <div class="recipe-grid" id="popularGrid"></div>
 
+    <!-- RECENTLY VIEWED -->
     <div class="section-label">Recently viewed</div>
-    <div id="emptyState" class="empty-state">Paste a link above to get started — your imported recipes will show up here.</div>
+    <div id="emptyState" class="empty-state">Recipes you open will show up here for quick access.</div>
     <div class="recipe-grid" id="libraryGrid"></div>
   </main>
   <footer>Recipes &amp; photos belong to their original sources — full credit and links are shown on every recipe.</footer>
@@ -231,16 +252,21 @@
 // Same-origin calls since the frontend and /api functions deploy together on Vercel.
 const PARSE_ENDPOINT = '/api/parse-recipe';       // blog/site links with schema.org data
 const EXTRACT_ENDPOINT = '/api/extract-recipe';   // pasted text, or TikTok/IG links (caption -> LLM)
+const SEARCH_ENDPOINT = '/api/search-recipes';    // live search across a few WordPress-based recipe blogs
 const LIBRARY_KEY = 'focusplate_library';
 const MAX_LIBRARY_ITEMS = 12;
 
 // A few tried-and-true recipes so the home page isn't empty on first visit.
 // Clicking one runs it through the same live parse-recipe flow as pasting
-// the link yourself — nothing here is pre-baked/fake data.
+// the link yourself — nothing here is pre-baked/fake data. Allrecipes isn't
+// WordPress-based so it can't be searched (see api/search-recipes.js), but
+// direct-link import still works fine since it publishes schema.org data
+// like almost every recipe site does.
 const POPULAR_RECIPES = [
   { emoji: '🍌', title: 'My Favorite Banana Bread', source: "Sally's Baking Addiction", url: 'https://sallysbakingaddiction.com/best-banana-bread-recipe/' },
   { emoji: '🍝', title: 'One Pot Creamy Mushroom Pasta', source: 'Budget Bytes', url: 'https://www.budgetbytes.com/one-pot-creamy-mushroom-pasta/' },
   { emoji: '🍜', title: 'Quick & Easy Garlic Noodles', source: 'Budget Bytes', url: 'https://www.budgetbytes.com/garlic-noodles/' },
+  { emoji: '🧀', title: "World's Best Lasagna", source: 'Allrecipes', url: 'https://www.allrecipes.com/recipe/23600/worlds-best-lasagna/' },
 ];
 
 let currentRecipe = null;
@@ -268,6 +294,27 @@ function removeFromLibrary(sourceUrl){
   renderLibrary();
 }
 
+/* ============== SHARED CARD RENDERING ============== */
+// One card builder used by Popular, Search results, and Recently viewed, so
+// all three look and behave identically no matter where a recipe came from.
+function makeCard({ title, source, emoji, image, onClick, onRemove }){
+  const card = document.createElement('div');
+  card.className = 'recipe-card';
+  card.innerHTML = `
+    <div class="recipe-thumb">${image ? `<img src="${image}" alt="">` : (emoji || '🍽️')}</div>
+    <div class="recipe-info">
+      <div class="title">${escapeHtml(title)}</div>
+      <div class="src">${escapeHtml(source || '')}</div>
+    </div>
+    ${onRemove ? '<button class="remove-btn" title="Remove">✕</button>' : ''}
+  `;
+  card.onclick = () => onClick(card);
+  if (onRemove) {
+    card.querySelector('.remove-btn').onclick = (e) => { e.stopPropagation(); onRemove(); };
+  }
+  return card;
+}
+
 function renderLibrary(){
   const lib = getLibrary();
   const grid = document.getElementById('libraryGrid');
@@ -281,22 +328,11 @@ function renderLibrary(){
   empty.classList.add('hidden');
 
   lib.forEach(recipe => {
-    const card = document.createElement('div');
-    card.className = 'recipe-card';
-    card.innerHTML = `
-      <div class="recipe-thumb">${recipe.image ? `<img src="${recipe.image}" alt="">` : '🍽️'}</div>
-      <div class="recipe-info">
-        <div class="title">${escapeHtml(recipe.title)}</div>
-        <div class="src">${escapeHtml(recipe.sourceName)}</div>
-      </div>
-      <button class="remove-btn" title="Remove">✕</button>
-    `;
-    card.onclick = () => openRecipe(recipe);
-    card.querySelector('.remove-btn').onclick = (e) => {
-      e.stopPropagation();
-      removeFromLibrary(recipe.sourceUrl);
-    };
-    grid.appendChild(card);
+    grid.appendChild(makeCard({
+      title: recipe.title, source: recipe.sourceName, image: recipe.image,
+      onClick: () => openRecipe(recipe), // already parsed & cached — open instantly, no fetch
+      onRemove: () => removeFromLibrary(recipe.sourceUrl),
+    }));
   });
 }
 
@@ -304,46 +340,62 @@ function renderLibrary(){
 function renderPopular(){
   const grid = document.getElementById('popularGrid');
   grid.innerHTML = '';
-
   POPULAR_RECIPES.forEach(item => {
-    const card = document.createElement('div');
-    card.className = 'recipe-card';
-    card.innerHTML = `
-      <div class="recipe-thumb">${item.emoji}</div>
-      <div class="recipe-info">
-        <div class="title">${escapeHtml(item.title)}</div>
-        <div class="src">${escapeHtml(item.source)}</div>
-      </div>
-    `;
-    card.onclick = () => openPopularRecipe(item, card);
-    grid.appendChild(card);
+    grid.appendChild(makeCard({
+      title: item.title, source: item.source, emoji: item.emoji,
+      onClick: (card) => importAndOpen(item.url, card),
+    }));
   });
 }
 
-async function openPopularRecipe(item, cardEl){
-  if (cardEl.classList.contains('loading')) return; // already fetching this one
-  urlError.classList.remove('show');
-  cardEl.classList.add('loading');
-  const titleEl = cardEl.querySelector('.title');
-  const originalTitle = titleEl.textContent;
-  titleEl.innerHTML = '<span class="spinner"></span>Fetching…';
+/* ============== SEARCH ============== */
+const searchInput = document.getElementById('searchInput');
+const searchBtn = document.getElementById('searchBtn');
+const searchLoading = document.getElementById('searchLoading');
+const searchError = document.getElementById('searchError');
+const searchResultsSection = document.getElementById('searchResultsSection');
+const searchResults = document.getElementById('searchResults');
+
+searchBtn.onclick = runSearch;
+searchInput.addEventListener('keydown', e => { if (e.key === 'Enter') runSearch(); });
+
+async function runSearch(){
+  const q = searchInput.value.trim();
+  searchError.classList.remove('show');
+  if (!q) return;
+
+  searchBtn.disabled = true;
+  searchLoading.classList.add('show');
+  searchResults.innerHTML = '';
 
   try {
-    const data = await callParse(item.url);
-    saveToLibrary(data);
-    openRecipe(data);
+    const res = await fetch(`${SEARCH_ENDPOINT}?q=${encodeURIComponent(q)}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Search failed.');
+
+    if (!data.results || !data.results.length){
+      searchResultsSection.classList.remove('hidden');
+      searchResults.innerHTML = `<div class="empty-state">No matches found for "${escapeHtml(q)}". Try a simpler term.</div>`;
+      return;
+    }
+
+    searchResultsSection.classList.remove('hidden');
+    data.results.forEach(r => {
+      searchResults.appendChild(makeCard({
+        title: r.title, source: r.source, image: r.image,
+        onClick: (card) => importAndOpen(r.url, card),
+      }));
+    });
   } catch (err) {
-    urlError.textContent = err.message || `Couldn't load "${item.title}" right now — try again in a moment.`;
-    urlError.classList.add('show');
-    document.querySelector('.url-box').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    searchError.textContent = err.message || 'Search failed — try again.';
+    searchError.classList.add('show');
   } finally {
-    cardEl.classList.remove('loading');
-    titleEl.textContent = originalTitle;
-    urlLoading.classList.remove('show');
+    searchBtn.disabled = false;
+    searchLoading.classList.remove('show');
   }
 }
 
-/* ============== INPUT SUBMIT -> DETECT MODE -> CALL RIGHT BACKEND ============== */
+/* ============== PASTE LINK / TIKTOK-IG LINK / TEXT ============== */
 const urlInput = document.getElementById('urlInput');
 const textInput = document.getElementById('textInput');
 const urlGoBtn = document.getElementById('urlGoBtn');
@@ -446,7 +498,6 @@ async function handleSubmit(){
 
 async function callParse(url){
   urlLoadingText.textContent = 'Fetching & reformatting…';
-  urlLoading.classList.add('show');
   const res = await fetch(`${PARSE_ENDPOINT}?url=${encodeURIComponent(url)}`);
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Something went wrong.');
@@ -466,6 +517,33 @@ async function callExtract(body){
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Something went wrong.');
   return data;
+}
+
+/* ============== SHARED IMPORT FLOW (Popular + Search cards) ============== */
+// Both routes are always plain blog URLs (never TikTok/IG/text), so they
+// always go through the schema.org parser, not the LLM extractor. Errors
+// surface in the paste box's error area so there's one consistent place to
+// look, regardless of which card triggered the import.
+async function importAndOpen(url, cardEl){
+  if (cardEl.classList.contains('loading')) return; // already fetching this one
+  urlError.classList.remove('show');
+  cardEl.classList.add('loading');
+  const titleEl = cardEl.querySelector('.title');
+  const originalTitle = titleEl.textContent;
+  titleEl.innerHTML = '<span class="spinner"></span>Fetching…';
+
+  try {
+    const data = await callParse(url);
+    saveToLibrary(data);
+    openRecipe(data);
+  } catch (err) {
+    urlError.textContent = err.message || `Couldn't load that recipe right now — try again in a moment.`;
+    urlError.classList.add('show');
+    document.getElementById('pasteBox').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } finally {
+    cardEl.classList.remove('loading');
+    titleEl.textContent = originalTitle;
+  }
 }
 
 /* ============== DETAIL VIEW ============== */
@@ -578,8 +656,8 @@ function escapeHtml(str){
   return div.innerHTML;
 }
 
-renderLibrary();
 renderPopular();
+renderLibrary();
 </script>
 
 </body>
