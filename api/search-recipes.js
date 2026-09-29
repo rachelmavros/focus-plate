@@ -36,6 +36,22 @@ const SITES = [
   { name: "Gimme Some Oven", base: "https://www.gimmesomeoven.com" },
   { name: "Damn Delicious", base: "https://damndelicious.net" },
   { name: "Love and Lemons", base: "https://www.loveandlemons.com" },
+  // Added for wider, more mainstream-recognizable coverage — all WordPress
+  // blogs like the ones above, so search works the same way. As with the
+  // rest of this list, unverified from my sandbox — report any that never
+  // return results and I'll swap them.
+  { name: 'Smitten Kitchen', base: 'https://smittenkitchen.com' },
+  { name: 'Once Upon a Chef', base: 'https://www.onceuponachef.com' },
+  { name: 'Skinnytaste', base: 'https://www.skinnytaste.com' },
+  { name: "Natasha's Kitchen", base: 'https://natashaskitchen.com' },
+  { name: 'Half Baked Harvest', base: 'https://www.halfbakedharvest.com' },
+  { name: 'The Recipe Critic', base: 'https://therecipecritic.com' },
+  { name: 'Spend With Pennies', base: 'https://www.spendwithpennies.com' },
+  { name: 'Ambitious Kitchen', base: 'https://www.ambitiouskitchen.com' },
+  // These two were live-tested (not guessed) — confirmed their wp-json
+  // search API returns real results before adding them.
+  { name: 'The Woks of Life', base: 'https://thewoksoflife.com' },
+  { name: 'Two Peas & Their Pod', base: 'https://www.twopeasandtheirpod.com' },
 ];
 
 const PER_SITE_RESULTS = 8; // fetch more raw candidates per site since relevance filtering below will drop a chunk of them

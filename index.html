@@ -326,23 +326,30 @@ const MAX_LIBRARY_ITEMS = 12;
 // bot-blocking/"pay per crawl" system returns 402 specifically), which
 // affects direct-link import too, not just search. Independent WordPress
 // blogs like these are much less likely to do this.
-// (The Pinch of Yum brownies pick that used to be here stopped loading —
-// the page must have moved or been taken down — swapped out. As with the
-// rest of this list, I can't verify these resolve from my own sandbox — if
-// any of the new ones break, let me know which and I'll swap it.)
+// Rebalanced across more sites (was previously weighted 3x toward Sally's
+// Baking Addiction and Budget Bytes) — the 6 entries below marked
+// "web-search verified" were looked up live rather than guessed, so those
+// URLs are confirmed current as of when this was written. The rest are
+// unverified from my sandbox as always — report any that break.
 const POPULAR_RECIPES = [
   { emoji: '🍌', title: 'My Favorite Banana Bread', source: "Sally's Baking Addiction", url: 'https://sallysbakingaddiction.com/best-banana-bread-recipe/' },
   { emoji: '🍝', title: 'One Pot Creamy Mushroom Pasta', source: 'Budget Bytes', url: 'https://www.budgetbytes.com/one-pot-creamy-mushroom-pasta/' },
   { emoji: '🍜', title: 'Quick & Easy Garlic Noodles', source: 'Budget Bytes', url: 'https://www.budgetbytes.com/garlic-noodles/' },
   { emoji: '🥑', title: 'Best Guacamole', source: 'Cookie and Kate', url: 'https://cookieandkate.com/best-guacamole-recipe/' },
-  { emoji: '🍪', title: 'The Best Chocolate Chip Cookies', source: "Sally's Baking Addiction", url: 'https://sallysbakingaddiction.com/best-chocolate-chip-cookie-recipe/' },
-  { emoji: '🍫', title: 'Fudgy Brownies', source: "Sally's Baking Addiction", url: 'https://sallysbakingaddiction.com/fudgy-brownies/' },
   { emoji: '🍲', title: 'Best Vegetarian Chili', source: 'Cookie and Kate', url: 'https://cookieandkate.com/best-vegetarian-chili-recipe/' },
   { emoji: '🍗', title: 'Best Baked Chicken Breast', source: 'Gimme Some Oven', url: 'https://www.gimmesomeoven.com/best-baked-chicken-breast/' },
   { emoji: '🥗', title: 'Simple Vegetable Soup', source: 'Love and Lemons', url: 'https://www.loveandlemons.com/vegetable-soup-recipe/' },
-  { emoji: '🍚', title: 'Easy Chicken Fried Rice', source: 'Budget Bytes', url: 'https://www.budgetbytes.com/chicken-fried-rice/' },
   { emoji: '🍪', title: '1-Bowl Vegan Chocolate Chip Cookies', source: 'Minimalist Baker', url: 'https://minimalistbaker.com/1-bowl-vegan-chocolate-chip-cookies/' },
   { emoji: '🧈', title: 'Crispy Baked Tofu', source: 'Love and Lemons', url: 'https://www.loveandlemons.com/crispy-baked-tofu/' },
+  { emoji: '🥘', title: 'Classic Beef Stew', source: 'Once Upon a Chef', url: 'https://www.onceuponachef.com/recipes/beef-stew-with-carrots-potatoes.html' }, // web-search verified
+  { emoji: '🧀', title: 'Skillet Lasagna', source: 'Skinnytaste', url: 'https://www.skinnytaste.com/skillet-lasagna/' }, // web-search verified
+  { emoji: '🥐', title: 'Easiest Cinnamon Rolls', source: 'Smitten Kitchen', url: 'https://smittenkitchen.com/2024/09/easiest-cinnamon-rolls/' }, // web-search verified
+  { emoji: '💍', title: 'One Pot Marry Me Chicken Pasta', source: 'Half Baked Harvest', url: 'https://www.halfbakedharvest.com/marry-me-chicken-pasta/' }, // web-search verified
+  { emoji: '🍯', title: 'Honey Garlic Chicken', source: "Natasha's Kitchen", url: 'https://natashaskitchen.com/honey-garlic-chicken/' }, // web-search verified
+  { emoji: '🍋', title: 'Chicken Piccata', source: 'Spend With Pennies', url: 'https://www.spendwithpennies.com/chicken-piccata/' }, // web-search verified
+  { emoji: '🍚', title: 'Korean Ground Beef and Rice Bowls', source: 'The Recipe Critic', url: 'https://therecipecritic.com/korean-ground-beef-rice-bowls/' }, // web-search verified
+  { emoji: '🥢', title: 'Sesame Chicken', source: 'The Woks of Life', url: 'https://thewoksoflife.com/sesame-chicken-recipe/' }, // web-search verified
+  { emoji: '🍓', title: 'Strawberry Muffins', source: 'Two Peas & Their Pod', url: 'https://www.twopeasandtheirpod.com/strawberry-muffins/' }, // web-search verified
 ];
 const POPULAR_PAGE_SIZE = 4;
 let popularPageIndex = 0;

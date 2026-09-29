@@ -142,6 +142,21 @@ overlap with the query.
   instead. Independent food blogs (the kind already in this app) are much
   less likely to do this than large media companies.
 
+**On Allrecipes specifically:** re-checked while adding more sites, and it's
+still a hard block — even a direct page fetch from a completely different
+network got flagged instantly. That "pay per crawl" system isn't a soft
+rate-limit that a different approach (rotating user-agents, retry logic,
+etc.) works around — it's Cloudflare's bot detection deliberately identifying
+and pricing automated access, and Allrecipes (owned by Dotdash Meredith)
+opted into it on purpose. The realistic ways around that — a headless
+browser, a paid scraping/proxy service — are a different kind of project
+than this one (they don't fit in a lightweight serverless function, need
+ongoing maintenance as the block adapts, and start to run up against
+Allrecipes' terms of service), so it's not something worth bolting on here.
+The same applies to Food Network, Delish, Taste of Home, Epicurious, and
+Simply Recipes — all big-media, all custom (non-WordPress) platforms likely
+running similar protection.
+
 To add more sites to search, edit the `SITES` list near the top of
 `api/search-recipes.js` — any WordPress-based recipe blog works the same way:
 
