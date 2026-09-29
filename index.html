@@ -317,36 +317,82 @@ const SEARCH_ENDPOINT = '/api/search-recipes';    // live search across a few Wo
 const LIBRARY_KEY = 'focusplate_library';
 const MAX_LIBRARY_ITEMS = 12;
 
-// A larger pool of tried-and-true recipes so "Popular to start" has enough
-// to page through, not just 4 that never change. Clicking one runs it
-// through the same live parse-recipe flow as pasting the link yourself —
-// nothing here is pre-baked/fake data.
-// NOTE: a big-publisher pick (Allrecipes) was tried here before but returned
-// HTTP 402 — many large publishers now block automated fetches (Cloudflare's
-// bot-blocking/"pay per crawl" system returns 402 specifically), which
-// affects direct-link import too, not just search. Independent WordPress
-// blogs like these are much less likely to do this.
-// Rebalanced across more sites (was previously weighted 3x toward Sally's
-// Baking Addiction and Budget Bytes) — the 6 entries below marked
-// "web-search verified" were looked up live rather than guessed, so those
-// URLs are confirmed current as of when this was written. The rest are
-// unverified from my sandbox as always — report any that break.
-const POPULAR_RECIPES = [
-  { emoji: '🍌', title: 'My Favorite Banana Bread', source: "Sally's Baking Addiction", url: 'https://sallysbakingaddiction.com/best-banana-bread-recipe/' },
-  { emoji: '🍝', title: 'One Pot Creamy Mushroom Pasta', source: 'Budget Bytes', url: 'https://www.budgetbytes.com/one-pot-creamy-mushroom-pasta/' },
-  { emoji: '🍜', title: 'Quick & Easy Garlic Noodles', source: 'Budget Bytes', url: 'https://www.budgetbytes.com/garlic-noodles/' },
-  { emoji: '🍪', title: 'Classic Vegan Chocolate Chip Cookies (1 Bowl)', source: 'Minimalist Baker', url: 'https://minimalistbaker.com/classic-vegan-chocolate-chip-cookies-1-bowl/' },
-  { emoji: '🥘', title: 'Classic Beef Stew', source: 'Once Upon a Chef', url: 'https://www.onceuponachef.com/recipes/beef-stew-with-carrots-potatoes.html' },
-  { emoji: '🧀', title: 'Skillet Lasagna', source: 'Skinnytaste', url: 'https://www.skinnytaste.com/skillet-lasagna/' },
-  { emoji: '🍜', title: "The Best Chicken Soup You'll Ever Eat", source: 'Ambitious Kitchen', url: 'https://www.ambitiouskitchen.com/the-best-chicken-soup-recipe/' },
-  { emoji: '💍', title: 'One Pot Marry Me Chicken Pasta', source: 'Half Baked Harvest', url: 'https://www.halfbakedharvest.com/marry-me-chicken-pasta/' },
-  { emoji: '🍯', title: 'Honey Garlic Chicken', source: "Natasha's Kitchen", url: 'https://natashaskitchen.com/honey-garlic-chicken/' },
-  { emoji: '🍋', title: 'Chicken Piccata', source: 'Spend With Pennies', url: 'https://www.spendwithpennies.com/chicken-piccata/' },
-  { emoji: '🍚', title: 'Korean Ground Beef and Rice Bowls', source: 'The Recipe Critic', url: 'https://therecipecritic.com/korean-ground-beef-rice-bowls/' },
-  { emoji: '🍓', title: 'Strawberry Muffins', source: 'Two Peas & Their Pod', url: 'https://www.twopeasandtheirpod.com/strawberry-muffins/' },
+// "Popular to start" used to be a hand-typed list of {title, source, url}
+// guesses — even ones looked up via web search turned out wrong often enough
+// (wrong slug, page moved, site started blocking) that roughly half of them
+// broke. Live Search never had that problem, because it always resolves a
+// URL fresh from each site's real API instead of trusting a URL someone
+// typed from memory. So Popular now works the same way: this is just a list
+// of popular dish search TERMS (with an emoji for the placeholder look), and
+// each term is resolved to a real, currently-working recipe by calling the
+// exact same /api/search-recipes endpoint Search uses, taking its top
+// result. Resolved results are cached in localStorage for a while so it's
+// instant on repeat visits, and re-resolved automatically once that cache
+// expires — so a page that moves or a site that starts blocking fixes
+// itself over time instead of staying broken until someone edits code.
+const POPULAR_SEARCH_TERMS = [
+  { emoji: '🍌', term: 'banana bread' },
+  { emoji: '🍝', term: 'creamy mushroom pasta' },
+  { emoji: '🍜', term: 'garlic noodles' },
+  { emoji: '🍪', term: 'chocolate chip cookies' },
+  { emoji: '🥘', term: 'beef stew' },
+  { emoji: '🧀', term: 'skillet lasagna' },
+  { emoji: '🍲', term: 'chicken soup' },
+  { emoji: '💍', term: 'marry me chicken pasta' },
+  { emoji: '🍯', term: 'honey garlic chicken' },
+  { emoji: '🍋', term: 'chicken piccata' },
+  { emoji: '🍚', term: 'ground beef rice bowl' },
+  { emoji: '🧁', term: 'strawberry muffins' },
+  { emoji: '🍕', term: 'homemade pizza dough' },
+  { emoji: '🥞', term: 'fluffy pancakes' },
 ];
 const POPULAR_PAGE_SIZE = 4;
 let popularPageIndex = 0;
+
+// How long a resolved Popular term is trusted before being re-resolved —
+// long enough that this is basically instant on every normal visit, short
+// enough that a broken link (page moved, site started blocking) doesn't
+// stay broken forever.
+const POPULAR_RESOLVED_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+const POPULAR_RESOLVED_KEY = 'focusplate_popular_resolved';
+
+function getPopularResolvedCache(){
+  try { return JSON.parse(localStorage.getItem(POPULAR_RESOLVED_KEY) || '{}'); }
+  catch { return {}; }
+}
+
+function savePopularResolved(term, entry){
+  const cache = getPopularResolvedCache();
+  cache[term] = { ...entry, ts: Date.now() };
+  localStorage.setItem(POPULAR_RESOLVED_KEY, JSON.stringify(cache));
+}
+
+// Resolves one popular search term to a real recipe via the live search
+// endpoint (same one the Search box uses), using a cached result if it's
+// still fresh. Returns null if resolution fails or nothing matched — the
+// caller just skips that card rather than showing a dead link.
+async function resolvePopularTerm(term){
+  const cache = getPopularResolvedCache();
+  const cached = cache[term];
+  if (cached && !cached.failed && (Date.now() - cached.ts) < POPULAR_RESOLVED_TTL_MS) {
+    return cached;
+  }
+  try {
+    const res = await fetch(`${SEARCH_ENDPOINT}?q=${encodeURIComponent(term)}`);
+    const data = await res.json();
+    if (!res.ok || !data.results || !data.results.length) {
+      savePopularResolved(term, { failed: true });
+      return null;
+    }
+    const top = data.results[0];
+    const entry = { title: top.title, source: top.source, url: top.url, image: top.image || null };
+    savePopularResolved(term, entry);
+    return entry;
+  } catch {
+    savePopularResolved(term, { failed: true });
+    return null;
+  }
+}
 
 // Cache of per-recipe-URL extras (real photo + star rating) fetched live in
 // the background for Popular and Search cards, so repeat visits/searches
@@ -539,34 +585,54 @@ async function syncCardMeta(url, card, { needsImage = false } = {}){
   }
 }
 
-/* ============== POPULAR TO START (real recipes, fetched live on click) ============== */
+/* ============== POPULAR TO START (terms resolved live, same as Search) ============== */
 // Paginated 4 at a time (arrows below), and starts on a random page each
-// visit so it's not always the same 4 recipes up top.
+// visit so it's not always the same 4 up top.
 function popularTotalPages(){
-  return Math.ceil(POPULAR_RECIPES.length / POPULAR_PAGE_SIZE);
+  return Math.ceil(POPULAR_SEARCH_TERMS.length / POPULAR_PAGE_SIZE);
 }
 
 function renderPopular(){
   const grid = document.getElementById('popularGrid');
   grid.innerHTML = '';
-  const cache = getCardMetaCache();
 
   const start = popularPageIndex * POPULAR_PAGE_SIZE;
-  const pageItems = POPULAR_RECIPES.slice(start, start + POPULAR_PAGE_SIZE);
+  const pageItems = POPULAR_SEARCH_TERMS.slice(start, start + POPULAR_PAGE_SIZE);
+  const resolvedCache = getPopularResolvedCache();
+  const metaCache = getCardMetaCache();
 
   pageItems.forEach(item => {
-    const meta = cache[item.url] || {};
-    const card = makeCard({
-      title: item.title, source: item.source, emoji: item.emoji,
-      image: meta.image || null, // cached photo, if we've fetched one before
-      rating: meta.rating || null,
-      ratingUrl: item.url,
-      onClick: (card) => importAndOpen(item.url, card),
-    });
-    grid.appendChild(card);
+    const cached = resolvedCache[item.term];
+    const isFresh = cached && !cached.failed && (Date.now() - cached.ts) < POPULAR_RESOLVED_TTL_MS;
 
-    if (!meta.fetched) {
-      queueCardMeta(item.url, card, { needsImage: true });
+    if (isFresh) {
+      renderResolvedPopularCard(grid, item, cached, metaCache);
+    } else {
+      // Show a placeholder card (emoji + term as a stand-in title) while the
+      // real recipe resolves in the background — same "fetching, never an
+      // error" spirit as the photo/rating sync.
+      const placeholder = makeCard({
+        title: titleCase(item.term), source: 'Fetching…', emoji: item.emoji,
+        onClick: () => {}, // not clickable until resolved
+      });
+      placeholder.classList.add('loading'); // existing dimmed/non-clickable style
+      grid.appendChild(placeholder);
+
+      resolvePopularTerm(item.term).then(resolved => {
+        // Only replace the placeholder if it's still on screen (user hasn't
+        // paged away in the meantime).
+        if (!placeholder.isConnected) return;
+        if (resolved) {
+          const meta = getCardMetaCache()[resolved.url] || {};
+          const real = buildResolvedPopularCard(item, resolved, meta);
+          placeholder.replaceWith(real);
+          if (!meta.fetched) queueCardMeta(resolved.url, real, { needsImage: !resolved.image });
+        } else {
+          // Genuinely couldn't resolve this term right now — just remove
+          // the placeholder rather than leaving a dead-end card.
+          placeholder.remove();
+        }
+      });
     }
   });
 
@@ -575,6 +641,27 @@ function renderPopular(){
   const nextBtn = document.getElementById('popularNextBtn');
   prevBtn.disabled = totalPages <= 1;
   nextBtn.disabled = totalPages <= 1;
+}
+
+function renderResolvedPopularCard(grid, item, resolved, metaCache){
+  const meta = metaCache[resolved.url] || {};
+  const card = buildResolvedPopularCard(item, resolved, meta);
+  grid.appendChild(card);
+  if (!meta.fetched) queueCardMeta(resolved.url, card, { needsImage: !resolved.image });
+}
+
+function buildResolvedPopularCard(item, resolved, meta){
+  return makeCard({
+    title: resolved.title, source: resolved.source, emoji: item.emoji,
+    image: meta.image || resolved.image || null,
+    rating: meta.rating || null,
+    ratingUrl: resolved.url,
+    onClick: (card) => importAndOpen(resolved.url, card),
+  });
+}
+
+function titleCase(str){
+  return str.replace(/\b\w/g, c => c.toUpperCase());
 }
 
 document.getElementById('popularPrevBtn').onclick = () => {
