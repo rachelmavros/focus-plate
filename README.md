@@ -142,6 +142,21 @@ overlap with the query.
   instead. Independent food blogs (the kind already in this app) are much
   less likely to do this than large media companies.
 
+**Some independent blogs can also return 403 on direct-link import**, even
+  with realistic browser headers. This is usually a WordPress security
+  plugin (Wordfence, Sucuri) blocking requests by IP address/hosting
+  provider rather than by User-Agent — since this app's fetch runs from
+  Vercel's servers, not a home internet connection, it can get caught by a
+  plugin rule that blanket-blocks known cloud-hosting IP ranges, regardless
+  of how browser-like the request headers look. Unlike the User-Agent fix
+  (which genuinely helped), this specific kind of block has no clean fix
+  from inside a lightweight serverless function — it would need a
+  residential proxy or a headless browser running somewhere with a
+  non-flagged IP, which is a bigger, different project than this one. If a
+  specific site you use often hits this consistently, the most reliable
+  workaround is pasting the recipe's text directly ("Paste text instead")
+  rather than the link.
+
 **On Allrecipes specifically:** re-checked while adding more sites, and it's
 still a hard block — even a direct page fetch from a completely different
 network got flagged instantly. That "pay per crawl" system isn't a soft

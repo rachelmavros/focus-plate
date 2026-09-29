@@ -824,10 +824,15 @@ async function handleSubmit(){
   try {
     let data;
 
-    if (!textInput.classList.contains('hidden')) {
-      // Explicit text mode
-      data = await callExtract({ text: val });
-    } else if (looksLikeUrl(val)) {
+    // Route by what was actually typed/pasted, not by which box it landed
+    // in. Text mode used to always go straight to the LLM extractor even
+    // when the "text" was actually just a bare URL (e.g. pasted while the
+    // toggle was still on "text" from an earlier paste) — the LLM has no
+    // page to read in that case, so it always failed with a confusing
+    // "couldn't find a clear recipe in that text" error for what looked
+    // like a totally ordinary link. Checking looksLikeUrl() regardless of
+    // mode means a pasted link always gets fetched properly either way.
+    if (looksLikeUrl(val)) {
       const parsedUrl = new URL(val);
       const host = parsedUrl.hostname.replace('www.', '');
       if (SOCIAL_HOST_PATTERN.test(host)) {
@@ -836,7 +841,8 @@ async function handleSubmit(){
         data = await callParse(parsedUrl.href);
       }
     } else {
-      // Not a URL and not in the textarea — treat as pasted text anyway
+      // Not a URL — genuine pasted text (or text-mode content that doesn't
+      // parse as a URL), so it goes through the LLM extractor either way.
       data = await callExtract({ text: val });
     }
 
