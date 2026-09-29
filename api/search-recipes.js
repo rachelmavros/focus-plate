@@ -215,10 +215,15 @@ async function fetchWithTimeout(url, ms) {
   try {
     return await fetch(url, {
       headers: {
-        // Same reasoning as parse-recipe.js — a declared-bot User-Agent
-        // gets filtered by basic WordPress security plugins even when the
-        // site is otherwise happy to serve the request.
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        // Confirmed by comparing against an earlier working version of this
+        // app: an honest, transparently-labeled bot User-Agent is actually
+        // MORE reliably let through than one pretending to be Chrome. A
+        // datacenter server (this Vercel function) claiming a Chrome UA
+        // without Chrome's actual TLS/HTTP2 fingerprint behind it reads as
+        // a spoofing attempt to real bot-detection, which is a bigger red
+        // flag than a plain, honest bot string. Do not change this back to
+        // a browser UA without confirming on Sally's/Budget Bytes first.
+        'User-Agent': 'Mozilla/5.0 (compatible; FocusPlateBot/1.0)',
         'Accept': 'application/json',
       },
       signal: controller.signal,
