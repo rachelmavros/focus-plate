@@ -371,10 +371,10 @@ function savePopularResolved(term, entry){
 // endpoint (same one the Search box uses), using a cached result if it's
 // still fresh. Returns null if resolution fails or nothing matched — the
 // caller just skips that card rather than showing a dead link.
-async function resolvePopularTerm(term){
+async function resolvePopularTerm(term, { force = false } = {}){
   const cache = getPopularResolvedCache();
   const cached = cache[term];
-  if (cached && !cached.failed && (Date.now() - cached.ts) < POPULAR_RESOLVED_TTL_MS) {
+  if (!force && cached && !cached.failed && (Date.now() - cached.ts) < POPULAR_RESOLVED_TTL_MS) {
     return cached;
   }
   try {
@@ -603,14 +603,31 @@ function renderPopular(){
 
   pageItems.forEach(item => {
     const cached = resolvedCache[item.term];
-    const isFresh = cached && !cached.failed && (Date.now() - cached.ts) < POPULAR_RESOLVED_TTL_MS;
+    const hasUsableCache = cached && !cached.failed;
+    const isStale = hasUsableCache && (Date.now() - cached.ts) >= POPULAR_RESOLVED_TTL_MS;
 
-    if (isFresh) {
-      renderResolvedPopularCard(grid, item, cached, metaCache);
+    if (hasUsableCache) {
+      // Stale-while-revalidate: show the last known-good result right away
+      // (instant, no network wait) even if its 30-day cache window has
+      // technically expired. If it's stale, quietly re-check in the
+      // background and swap in anything fresher once it's back — the card
+      // the person sees is never blocked on that round trip.
+      const card = renderResolvedPopularCard(grid, item, cached, metaCache);
+      if (isStale) {
+        resolvePopularTerm(item.term, { force: true }).then(resolved => {
+          if (!card.isConnected || !resolved) return;
+          if (resolved.url === cached.url && resolved.title === cached.title) return; // nothing changed
+          const meta = getCardMetaCache()[resolved.url] || {};
+          const fresh = buildResolvedPopularCard(item, resolved, meta);
+          card.replaceWith(fresh);
+          if (!meta.fetched) queueCardMeta(resolved.url, fresh, { needsImage: !resolved.image });
+        });
+      }
     } else {
-      // Show a placeholder card (emoji + term as a stand-in title) while the
-      // real recipe resolves in the background — same "fetching, never an
-      // error" spirit as the photo/rating sync.
+      // Never resolved before (or last attempt failed) — nothing to show
+      // instantly, so show a placeholder card (emoji + term as a stand-in
+      // title) while the real recipe resolves in the background, same
+      // "fetching, never an error" spirit as the photo/rating sync.
       const placeholder = makeCard({
         title: titleCase(item.term), source: 'Fetching…', emoji: item.emoji,
         onClick: () => {}, // not clickable until resolved
@@ -648,6 +665,7 @@ function renderResolvedPopularCard(grid, item, resolved, metaCache){
   const card = buildResolvedPopularCard(item, resolved, meta);
   grid.appendChild(card);
   if (!meta.fetched) queueCardMeta(resolved.url, card, { needsImage: !resolved.image });
+  return card;
 }
 
 function buildResolvedPopularCard(item, resolved, meta){
