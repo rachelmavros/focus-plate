@@ -95,7 +95,7 @@ export default async function handler(req, res) {
       });
     }
 
-    const formatted = formatExtractedRecipe(recipe, { sourceUrl, sourceName });
+    const formatted = formatExtractedRecipe(recipe, { sourceUrl, sourceName, rawSource: rawText });
     return res.status(200).json(formatted);
 
   } catch (err) {
@@ -196,13 +196,14 @@ async function extractRecipeWithLLM(rawText) {
   "total": string | null,
   "yield": string | null,      // e.g. "4 servings"
   "ingredients": [ { "amount": string | null, "name": string } ],
-  "steps": [ string ]          // each a single instruction, split into reasonably short steps
+  "steps": [ string ]          // the recipe's own natural steps — see rules below
 }
 
 Rules:
 - If the text is not actually a recipe (no ingredients/steps you can identify), return exactly: {"error": "not_a_recipe"}
 - Keep ingredient "name" as just the ingredient (e.g. "flour", not "2 cups flour") and put the quantity in "amount".
-- Break long run-on instructions into multiple shorter steps.
+- Match the source's OWN step structure as closely as possible. If the text already numbers or clearly separates its steps (e.g. "1. ... 2. ... 3. ..." or one step per line), keep that same number of steps — do not split them into more, smaller ones. A short recipe described in 5-8 steps should come out as roughly 5-8 steps here, not 15-20.
+- Only split a step into two when it genuinely bundles two separate stages a cook would treat as distinct pauses (e.g. "let the dough rest for an hour, then roll it out" could stay one step, but "make the sauce while the pasta boils, then toss them together and plate" covers three distinct moments). Do not split on every sentence or every comma — group closely related actions the way someone would naturally read them off while cooking (e.g. "add the eggs one at a time, mixing well after each" stays one step).
 - Do not invent ingredients, quantities, or steps that aren't in the text.
 - Return raw JSON only.
 
@@ -278,7 +279,7 @@ ${rawText.slice(0, 8000)}
    Reshape LLM output into the app's recipe object, reusing the
    same ingredient-inline-highlighting logic as parse-recipe.js
    ============================================================ */
-function formatExtractedRecipe(recipe, { sourceUrl, sourceName }) {
+function formatExtractedRecipe(recipe, { sourceUrl, sourceName, rawSource }) {
   const ingredients = recipe.ingredients.map((ing, idx) => ({
     id: `ing${idx}`,
     amount: ing.amount || null,
@@ -302,6 +303,12 @@ function formatExtractedRecipe(recipe, { sourceUrl, sourceName }) {
     },
     ingredients,
     steps,
+    // The original caption/pasted text this was extracted from, unedited —
+    // lets the app show a "Raw caption" tab alongside the reformatted
+    // version, since the reformatting (reordering, splitting, highlighting)
+    // is a lossy interpretation and people sometimes want to check it
+    // against the source (a TikTok caption's own phrasing, emoji, etc.).
+    rawSource: rawSource || null,
   };
 }
 
