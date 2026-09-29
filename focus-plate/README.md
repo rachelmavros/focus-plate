@@ -7,12 +7,15 @@ This is built to deploy with **zero command line** — same workflow as your
 other projects (GitHub web UI → Vercel auto-deploy on commit).
 
 ## File structure
-You need exactly these 5 files, in this exact folder structure:
+You need exactly these 8 files, in this exact folder structure:
 
 ```
 focus-plate/
 ├── index.html              ← the app itself
 ├── package.json             ← tells Vercel this uses ES modules
+├── favicon.png              ← browser tab icon (64x64)
+├── favicon-32.png           ← browser tab icon (32x32, some browsers prefer this size)
+├── apple-touch-icon.png     ← home-screen/bookmark icon for iOS Safari
 └── api/
     ├── parse-recipe.js      ← backend for recipe-blog links (schema.org data)
     ├── extract-recipe.js    ← backend for pasted text & TikTok/IG links (LLM-based)
@@ -41,6 +44,9 @@ directly.
   `api` folder for you) — paste contents, commit
 - One more: filename `api/extract-recipe.js` — paste contents, commit
 - One more: filename `api/search-recipes.js` — paste contents, commit
+- The three `.png` files are images, not text, so they can't be pasted this
+  way — instead use **"Add file" → "Upload files"** and drag in `favicon.png`,
+  `favicon-32.png`, and `apple-touch-icon.png` together, then commit
 
 **3. Connect to Vercel**
 - Go to vercel.com → Add New → Project
@@ -181,11 +187,10 @@ bots like Allrecipes did), swap in a fresh URL from that site.
   (cached in local storage after that, so it's instant on repeat visits). If
   a site is slow or blocked, the card just keeps its emoji — never shows an
   error for this, since it's a background nicety, not a user action.
-- **Recipe detail view**: shows a small 64×64px photo in the top-right of the
-  header, next to the title, when the source provides one — kept small and
-  square on purpose so a low-res or oddly-shaped source photo never gets
-  stretched into a blurry banner. Pasted-text and most TikTok/IG imports
-  won't have one, since there's no page to pull a photo from.
+- **Recipe detail view**: shows a full-width hero photo at the top of the
+  page (4:3, capped at 280px tall) when the source provides one. Pasted-text
+  and most TikTok/IG imports won't have one, since there's no page to pull a
+  photo from.
 - **Per-step photos**: some recipe sites include a photo for individual
   instruction steps in their structured data (not most sites, but some do).
   When present, it shows as a small 56px thumbnail next to that step. This
