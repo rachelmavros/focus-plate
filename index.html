@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Focus Plate — ADHD-Friendly Recipes</title>
+<!-- Favicon: real PNG files (not a data URI — those aren't reliably picked
+     up as favicons or home-screen icons across browsers/mobile) showing the
+     same 🍽️ plate mark used in the header. -->
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="64x64" href="favicon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <style>
   :root{
     --bg: #FBF6EE;
@@ -115,17 +121,14 @@
   .meta-pills{ display:flex; gap: 10px; font-size: 13px; font-weight: 600; margin-top: 12px; flex-wrap: wrap; }
   .meta-pills span{ background: var(--accent-soft); color: var(--accent-deep); padding: 5px 12px; border-radius: 999px; }
 
-  /* Row layout so the small photo sits at the top-right of the header,
-     next to the title/source/meta text, instead of stretching full-width. */
-  .header-row{ display:flex; gap:14px; align-items:flex-start; }
-  .header-text{ flex:1; min-width:0; }
-
-  /* Small, fixed-size square thumbnail — kept compact on purpose so it
-     doesn't crowd out the reading experience or get stretched/cropped
-     into a blurry banner; just enough to recognize the dish at a glance. */
+  /* Full-width hero photo, sized like a normal recipe-app photo. A 4:3
+     aspect ratio (instead of a fixed pixel height) keeps the crop looking
+     natural at any screen width — the earlier fixed 140px height squashed
+     it into a thin strip, and a fixed 64px box made it too small to read. */
   .hero-img{
-    width: 64px; height: 64px; object-fit: cover; border-radius: 12px;
-    flex-shrink: 0; margin-top: 2px; display:block;
+    width: 100%; aspect-ratio: 4 / 3; max-height: 280px;
+    object-fit: cover; border-radius: 14px;
+    margin-bottom: 16px; display:block;
   }
   .watch-original{
     display:inline-flex; align-items:center; gap:6px; margin-top: 12px;
@@ -205,7 +208,27 @@
   </div>
 
   <main>
-    <!-- SEARCH (primary action) -->
+    <!-- PASTE LINK / TIKTOK-IG LINK / TEXT (primary action) -->
+    <div class="box" id="pasteBox">
+      <label>Paste a recipe link, a TikTok/IG link, or the recipe text itself</label>
+      <div class="input-row">
+        <input type="text" id="urlInput" placeholder="Link, or paste recipe text…">
+        <button id="urlGoBtn">Go</button>
+      </div>
+      <textarea id="textInput" class="hidden" placeholder="Paste the recipe text here (from a chat, a note, a caption, etc.)"></textarea>
+      <div class="msg load" id="urlLoading"><span class="spinner"></span><span id="urlLoadingText">Fetching &amp; reformatting…</span></div>
+      <div class="msg err" id="urlError"></div>
+      <div class="hint">
+        Works on recipe blogs, TikTok/Instagram links with the recipe in the caption, or text pasted directly (from an AI chat, notes, etc.).
+        <a href="#" id="modeToggle" style="text-decoration:underline; color:var(--accent-deep); font-weight:600;">Paste text instead</a>
+      </div>
+    </div>
+
+    <!-- PRELOADED -->
+    <div class="section-label">Popular to start</div>
+    <div class="recipe-grid" id="popularGrid"></div>
+
+    <!-- SEARCH -->
     <div class="box">
       <label>Search recipes</label>
       <div class="input-row">
@@ -222,26 +245,6 @@
       <div class="recipe-grid" id="searchResults"></div>
     </div>
 
-    <!-- PRELOADED -->
-    <div class="section-label">Popular to start</div>
-    <div class="recipe-grid" id="popularGrid"></div>
-
-    <!-- PASTE LINK / TIKTOK-IG LINK / TEXT -->
-    <div class="box" id="pasteBox">
-      <label>Or paste a recipe link, a TikTok/IG link, or the recipe text itself</label>
-      <div class="input-row">
-        <input type="text" id="urlInput" placeholder="Link, or paste recipe text…">
-        <button id="urlGoBtn">Go</button>
-      </div>
-      <textarea id="textInput" class="hidden" placeholder="Paste the recipe text here (from a chat, a note, a caption, etc.)"></textarea>
-      <div class="msg load" id="urlLoading"><span class="spinner"></span><span id="urlLoadingText">Fetching &amp; reformatting…</span></div>
-      <div class="msg err" id="urlError"></div>
-      <div class="hint">
-        Works on recipe blogs, TikTok/Instagram links with the recipe in the caption, or text pasted directly (from an AI chat, notes, etc.).
-        <a href="#" id="modeToggle" style="text-decoration:underline; color:var(--accent-deep); font-weight:600;">Paste text instead</a>
-      </div>
-    </div>
-
     <!-- RECENTLY VIEWED -->
     <div class="section-label">Recently viewed</div>
     <div id="emptyState" class="empty-state">Recipes you open will show up here for quick access.</div>
@@ -254,15 +257,11 @@
 <div id="view-detail" class="hidden">
   <div class="detail-header">
     <button class="back-btn" id="backBtn">← Back</button>
-    <div class="header-row">
-      <div class="header-text">
-        <div class="source">Source: <span id="d-source"></span></div>
-        <h1 id="d-title"></h1>
-        <div class="meta-pills" id="d-meta"></div>
-        <a id="d-watch-original" class="watch-original hidden" target="_blank" rel="noopener"></a>
-      </div>
-      <img id="d-hero" class="hero-img hidden" alt="">
-    </div>
+    <img id="d-hero" class="hero-img hidden" alt="">
+    <div class="source">Source: <span id="d-source"></span></div>
+    <h1 id="d-title"></h1>
+    <div class="meta-pills" id="d-meta"></div>
+    <a id="d-watch-original" class="watch-original hidden" target="_blank" rel="noopener"></a>
   </div>
 
   <main>
