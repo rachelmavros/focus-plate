@@ -108,16 +108,21 @@ results with thumbnails. Tap a result to import it, same as any other link.
 
 ## Which sites work where (an important distinction)
 - **Direct-link import** (pasting a URL, or a "Popular to start" card) works
-  on almost any recipe site — Allrecipes, NYT Cooking, Food Network, Bon
-  Appétit, every WordPress food blog, etc. — because it reads schema.org
-  structured data, which nearly all recipe sites publish for Google/Pinterest
-  regardless of what platform they're built on.
+  on almost any recipe site — NYT Cooking, Bon Appétit, every WordPress food
+  blog, etc. — because it reads schema.org structured data, which nearly all
+  recipe sites publish for Google/Pinterest regardless of what platform
+  they're built on.
 - **Search** only works on WordPress-based sites, because it uses each
-  site's `wp-json` REST API specifically. Big platforms like Allrecipes, NYT
-  Cooking, and Food Network run on their own custom systems with no
-  equivalent public search endpoint, so they can't be added to search — but
-  they still work fine via direct-link import (which is why Allrecipes is a
-  "Popular to start" card but not a search source).
+  site's `wp-json` REST API specifically. Big platforms run on their own
+  custom systems with no equivalent public search endpoint, so they can't be
+  added to search.
+- **Big publishers may block both.** Allrecipes was tried as a "Popular"
+  card and returned HTTP 402 (Payment Required) — some large publishers now
+  use Cloudflare's bot-blocking/"pay per crawl" system, which returns 402 to
+  automated requests specifically. This affects direct-link import too, not
+  just search, so it was swapped for an independent WordPress blog recipe
+  instead. Independent food blogs (the kind already in this app) are much
+  less likely to do this than large media companies.
 
 To add more sites to search, edit the `SITES` list near the top of
 `api/search-recipes.js` — any WordPress-based recipe blog works the same way:
@@ -132,10 +137,10 @@ const SITES = [
 
 ## What works well vs. what doesn't (yet)
 **Works well:** most major recipe blogs and sites — WordPress-based food
-blogs (which is most of them), NYT Cooking, AllRecipes, Bon Appétit, Budget
-Bytes, Sally's Baking Addiction, etc. — for direct-link import. These all
-publish structured recipe data for Google/Pinterest, which is what
-`parse-recipe.js` reads.
+blogs (which is most of them), NYT Cooking, Bon Appétit, Budget Bytes,
+Sally's Baking Addiction, etc. — for direct-link import. These all publish
+structured recipe data for Google/Pinterest, which is what `parse-recipe.js`
+reads.
 
 **Won't work:**
 - Sites that don't publish structured recipe data at all (rare, but
@@ -155,5 +160,28 @@ Not a blocker, just something to expect.
 requests from my own sandbox (it's restricted to a small allowlist of
 domains), so while these URLs are correct as of my research, you're the
 first real test of whether each one still resolves and has schema.org data.
-If any ever break (sites redesign/move pages sometimes), swap in a fresh
-URL from that site.
+If any ever break (sites redesign/move pages sometimes, or start blocking
+bots like Allrecipes did), swap in a fresh URL from that site.
+
+## Photos
+- **Popular to start cards**: on first visit each card shows an emoji, then
+  quietly fetches its real recipe photo in the background and swaps it in
+  (cached in local storage after that, so it's instant on repeat visits). If
+  a site is slow or blocked, the card just keeps its emoji — never shows an
+  error for this, since it's a background nicety, not a user action.
+- **Recipe detail view**: shows a compact hero photo at the top (max ~140px
+  tall, so it doesn't crowd out the reading experience) when the source
+  provides one. Pasted-text and most TikTok/IG imports won't have one, since
+  there's no page to pull a photo from.
+- **Per-step photos**: some recipe sites include a photo for individual
+  instruction steps in their structured data (not most sites, but some do).
+  When present, it shows as a small 56px thumbnail next to that step. This
+  only applies to blog-link imports — LLM-extracted recipes (pasted
+  text/TikTok/IG) never have step photos since there's no source photo data.
+
+## TikTok/Instagram imports
+The recipe detail view for a TikTok/IG import shows a prominent
+"▶ Watch original on TikTok/Instagram" button (not just the small "Source:"
+line other imports get), since the video itself is often the real reference
+point for these — ingredient amounts or technique details that didn't make
+it into the caption. Tapping it opens the original video in a new tab.

@@ -115,6 +115,18 @@
   .meta-pills{ display:flex; gap: 10px; font-size: 13px; font-weight: 600; margin-top: 12px; flex-wrap: wrap; }
   .meta-pills span{ background: var(--accent-soft); color: var(--accent-deep); padding: 5px 12px; border-radius: 999px; }
 
+  /* Compact hero photo — kept small on purpose so it doesn't crowd out the
+     reading experience; just enough to recognize the dish at a glance. */
+  .hero-img{
+    width: 100%; max-height: 140px; object-fit: cover; border-radius: 12px;
+    margin-top: 14px; display:block;
+  }
+  .watch-original{
+    display:inline-flex; align-items:center; gap:6px; margin-top: 12px;
+    background: var(--accent); color: white; text-decoration:none;
+    font-size: 13px; font-weight: 700; padding: 8px 16px; border-radius: 999px;
+  }
+
   .progress-wrap{ padding: 20px 22px 4px; }
   .progress-track{ height: 8px; background: var(--line); border-radius: 99px; overflow:hidden; }
   .progress-fill{ height:100%; background: var(--accent); width: 0%; border-radius: 99px; transition: width 0.4s ease; }
@@ -141,6 +153,7 @@
   .step{ border-radius: var(--radius); background: var(--card); margin-bottom: 14px; overflow:hidden; border: 1px solid var(--line); transition: opacity 0.3s ease; }
   .step.done{ opacity: 0.55; }
   .step-head{ display:flex; gap:12px; padding: 18px 16px; align-items:flex-start; }
+  .step-content{ flex:1; min-width:0; }
   .step-check{
     flex-shrink:0; width: 28px; height:28px; border-radius: 50%; border: 2px solid var(--line);
     margin-top: 2px; cursor:pointer; display:flex; align-items:center; justify-content:center; background: var(--card);
@@ -157,6 +170,13 @@
     margin: 0 16px 16px 56px; display:inline-flex; align-items:center; gap:6px; font-size: 12.5px;
     font-weight: 600; color: var(--ink-soft); background: var(--bg); border: 1.5px dashed var(--line);
     padding: 5px 10px; border-radius: 999px;
+  }
+  /* Small, optional per-step photo — only appears when the source site
+     provides one for that specific step. Kept compact (56px) so it reads as
+     a helpful thumbnail, not a distraction from the instruction text. */
+  .step-img{
+    width: 56px; height: 56px; border-radius: 10px; object-fit: cover;
+    flex-shrink: 0; margin-left: 12px;
   }
 
   footer{ text-align:center; padding: 32px 24px 10px; font-size: 12px; color: var(--ink-soft); }
@@ -179,26 +199,9 @@
   </div>
 
   <main>
-    <!-- SEARCH -->
-    <div class="box">
-      <label>Search recipes</label>
-      <div class="input-row">
-        <input type="text" id="searchInput" placeholder="e.g. chocolate chip, pasta, banana…">
-        <button id="searchBtn">Search</button>
-      </div>
-      <div class="msg load" id="searchLoading"><span class="spinner"></span>Searching…</div>
-      <div class="msg err" id="searchError"></div>
-      <div class="hint">Searches across a few trusted recipe blogs live.</div>
-    </div>
-
-    <div id="searchResultsSection" class="hidden">
-      <div class="section-label">Search results</div>
-      <div class="recipe-grid" id="searchResults"></div>
-    </div>
-
-    <!-- PASTE LINK / TIKTOK-IG LINK / TEXT -->
+    <!-- PASTE LINK / TIKTOK-IG LINK / TEXT (primary action) -->
     <div class="box" id="pasteBox">
-      <label>Or paste a recipe link, a TikTok/IG link, or the recipe text itself</label>
+      <label>Paste a recipe link, a TikTok/IG link, or the recipe text itself</label>
       <div class="input-row">
         <input type="text" id="urlInput" placeholder="Link, or paste recipe text…">
         <button id="urlGoBtn">Go</button>
@@ -216,6 +219,23 @@
     <div class="section-label">Popular to start</div>
     <div class="recipe-grid" id="popularGrid"></div>
 
+    <!-- SEARCH -->
+    <div class="box">
+      <label>Search recipes</label>
+      <div class="input-row">
+        <input type="text" id="searchInput" placeholder="e.g. chocolate chip, pasta, banana…">
+        <button id="searchBtn">Search</button>
+      </div>
+      <div class="msg load" id="searchLoading"><span class="spinner"></span>Searching…</div>
+      <div class="msg err" id="searchError"></div>
+      <div class="hint">Searches across a few trusted recipe blogs live.</div>
+    </div>
+
+    <div id="searchResultsSection" class="hidden">
+      <div class="section-label">Search results</div>
+      <div class="recipe-grid" id="searchResults"></div>
+    </div>
+
     <!-- RECENTLY VIEWED -->
     <div class="section-label">Recently viewed</div>
     <div id="emptyState" class="empty-state">Recipes you open will show up here for quick access.</div>
@@ -230,7 +250,9 @@
     <button class="back-btn" id="backBtn">← Back</button>
     <div class="source">Source: <span id="d-source"></span></div>
     <h1 id="d-title"></h1>
+    <img id="d-hero" class="hero-img hidden" alt="">
     <div class="meta-pills" id="d-meta"></div>
+    <a id="d-watch-original" class="watch-original hidden" target="_blank" rel="noopener"></a>
   </div>
 
   <main>
@@ -258,16 +280,23 @@ const MAX_LIBRARY_ITEMS = 12;
 
 // A few tried-and-true recipes so the home page isn't empty on first visit.
 // Clicking one runs it through the same live parse-recipe flow as pasting
-// the link yourself — nothing here is pre-baked/fake data. Allrecipes isn't
-// WordPress-based so it can't be searched (see api/search-recipes.js), but
-// direct-link import still works fine since it publishes schema.org data
-// like almost every recipe site does.
+// the link yourself — nothing here is pre-baked/fake data.
+// NOTE: a big-publisher pick (Allrecipes) was tried here before but returned
+// HTTP 402 — many large publishers now block automated fetches (Cloudflare's
+// bot-blocking/"pay per crawl" system returns 402 specifically), which
+// affects direct-link import too, not just search. Independent WordPress
+// blogs like these are much less likely to do this.
 const POPULAR_RECIPES = [
   { emoji: '🍌', title: 'My Favorite Banana Bread', source: "Sally's Baking Addiction", url: 'https://sallysbakingaddiction.com/best-banana-bread-recipe/' },
   { emoji: '🍝', title: 'One Pot Creamy Mushroom Pasta', source: 'Budget Bytes', url: 'https://www.budgetbytes.com/one-pot-creamy-mushroom-pasta/' },
   { emoji: '🍜', title: 'Quick & Easy Garlic Noodles', source: 'Budget Bytes', url: 'https://www.budgetbytes.com/garlic-noodles/' },
-  { emoji: '🧀', title: "World's Best Lasagna", source: 'Allrecipes', url: 'https://www.allrecipes.com/recipe/23600/worlds-best-lasagna/' },
+  { emoji: '🍫', title: 'The Best Fudgy Brownies', source: 'Pinch of Yum', url: 'https://pinchofyum.com/the-best-fudgy-brownies' },
 ];
+
+// Real photos for Popular cards, fetched live in the background and cached
+// so repeat visits show images instantly. If a site is blocked or slow, the
+// card just silently keeps its emoji — never blocks or errors visibly here.
+const POPULAR_THUMBS_KEY = 'focusplate_popular_thumbs';
 
 let currentRecipe = null;
 const ingState = {};
@@ -315,6 +344,15 @@ function makeCard({ title, source, emoji, image, onClick, onRemove }){
   return card;
 }
 
+// Swaps a card's thumbnail from emoji to a real photo once one is available.
+function setCardImage(card, imageUrl){
+  if (!imageUrl) return;
+  const thumb = card.querySelector('.recipe-thumb');
+  if (thumb && !thumb.querySelector('img')) {
+    thumb.innerHTML = `<img src="${imageUrl}" alt="">`;
+  }
+}
+
 function renderLibrary(){
   const lib = getLibrary();
   const grid = document.getElementById('libraryGrid');
@@ -337,15 +375,49 @@ function renderLibrary(){
 }
 
 /* ============== POPULAR TO START (real recipes, fetched live on click) ============== */
+function getPopularThumbs(){
+  try { return JSON.parse(localStorage.getItem(POPULAR_THUMBS_KEY) || '{}'); }
+  catch { return {}; }
+}
+
 function renderPopular(){
   const grid = document.getElementById('popularGrid');
   grid.innerHTML = '';
+  const thumbs = getPopularThumbs();
+
   POPULAR_RECIPES.forEach(item => {
-    grid.appendChild(makeCard({
+    const card = makeCard({
       title: item.title, source: item.source, emoji: item.emoji,
+      image: thumbs[item.url] || null, // cached photo, if we've fetched one before
       onClick: (card) => importAndOpen(item.url, card),
-    }));
+    });
+    grid.appendChild(card);
+
+    // No cached photo yet — quietly fetch this recipe in the background just
+    // to grab its image, so the card upgrades from emoji to a real photo
+    // without the user having to click it first. Never shows a loading state
+    // or error here; a failure (blocked site, etc.) just leaves the emoji.
+    if (!thumbs[item.url]) {
+      syncPopularThumb(item.url, card);
+    }
   });
+}
+
+async function syncPopularThumb(url, card){
+  try {
+    const res = await fetch(`${PARSE_ENDPOINT}?url=${encodeURIComponent(url)}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!data.image) return;
+
+    setCardImage(card, data.image);
+    const thumbs = getPopularThumbs();
+    thumbs[url] = data.image;
+    localStorage.setItem(POPULAR_THUMBS_KEY, JSON.stringify(thumbs));
+  } catch {
+    // Silently leave the emoji — this is a background nicety, not a
+    // user-facing action, so it shouldn't ever surface an error.
+  }
 }
 
 /* ============== SEARCH ============== */
@@ -553,9 +625,38 @@ function openRecipe(recipe){
   currentRecipe.ingredients.forEach(i => ingState[i.id] = false);
   stepDone = currentRecipe.steps.map(() => false);
 
-  document.getElementById('d-source').innerHTML =
-    `<a href="${currentRecipe.sourceUrl}" target="_blank" rel="noopener">${escapeHtml(currentRecipe.sourceName)}</a>`;
+  const sourceEl = document.getElementById('d-source');
+  if (currentRecipe.sourceUrl) {
+    sourceEl.innerHTML = `<a href="${currentRecipe.sourceUrl}" target="_blank" rel="noopener">${escapeHtml(currentRecipe.sourceName)}</a>`;
+  } else {
+    sourceEl.textContent = currentRecipe.sourceName; // e.g. pasted text has no link to show
+  }
   document.getElementById('d-title').textContent = currentRecipe.title;
+
+  // Compact hero photo, only shown when we actually have one (blog imports
+  // do; pasted-text and most TikTok/IG imports won't).
+  const heroEl = document.getElementById('d-hero');
+  if (currentRecipe.image) {
+    heroEl.src = currentRecipe.image;
+    heroEl.alt = currentRecipe.title;
+    heroEl.classList.remove('hidden');
+  } else {
+    heroEl.classList.add('hidden');
+    heroEl.removeAttribute('src');
+  }
+
+  // For a TikTok/Instagram import specifically, a small blog-style "Source"
+  // link is easy to miss — add a clearly-visible button to reopen the
+  // original video, since that's the primary reference for these.
+  const watchEl = document.getElementById('d-watch-original');
+  const isSocialImport = currentRecipe.sourceUrl && /^(TikTok|Instagram)$/.test(currentRecipe.sourceName);
+  if (isSocialImport) {
+    watchEl.href = currentRecipe.sourceUrl;
+    watchEl.textContent = `▶ Watch original on ${currentRecipe.sourceName}`;
+    watchEl.classList.remove('hidden');
+  } else {
+    watchEl.classList.add('hidden');
+  }
 
   const pills = [];
   if (currentRecipe.meta?.total) pills.push(`⏱ ${currentRecipe.meta.total}`);
@@ -615,10 +716,11 @@ function renderSteps(){
         <div class="step-check">
           <svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </div>
-        <div>
+        <div class="step-content">
           <div class="step-num">Step ${idx + 1} of ${currentRecipe.steps.length}</div>
           <div class="step-text">${textHtml}</div>
         </div>
+        ${step.image ? `<img class="step-img" src="${step.image}" alt="">` : ''}
       </div>
       ${step.timer ? `<div class="step-timer">⏱ ${escapeHtml(step.timer)}</div>` : ''}
     `;

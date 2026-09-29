@@ -110,7 +110,7 @@ function findRecipeNode(node) {
 function formatRecipe(recipe, sourceUrl) {
   const ingredients = normalizeIngredients(recipe.recipeIngredient || recipe.ingredients || []);
   const rawSteps = normalizeInstructions(recipe.recipeInstructions);
-  const steps = rawSteps.map(stepText => buildStepParts(stepText, ingredients));
+  const steps = rawSteps.map(step => buildStepParts(step.text, ingredients, step.image));
 
   return {
     title: decodeEntities(recipe.name || 'Untitled Recipe'),
@@ -190,7 +190,10 @@ function normalizeIngredients(rawList) {
   });
 }
 
-/* ----- Instructions: handle string / HowToStep[] / HowToSection[] ----- */
+/* ----- Instructions: handle string / HowToStep[] / HowToSection[] -----
+   Returns an array of { text, image } — image is null unless the site's
+   schema.org data includes a photo for that specific step (some sites do
+   this, most don't; it's a bonus when present, never required). */
 function normalizeInstructions(instructions) {
   if (!instructions) return [];
   let rawSteps = [];
@@ -199,26 +202,34 @@ function normalizeInstructions(instructions) {
     rawSteps = decodeEntities(instructions)
       .split(/\n+|(?:\d+\.\s)/)
       .map(s => s.trim())
-      .filter(Boolean);
+      .filter(Boolean)
+      .map(text => ({ text, image: null }));
   } else if (Array.isArray(instructions)) {
     const steps = [];
     for (const item of instructions) {
       if (typeof item === 'string') {
-        steps.push(decodeEntities(item.trim()));
+        const text = decodeEntities(item.trim());
+        if (text) steps.push({ text, image: null });
       } else if (item['@type'] === 'HowToSection' && Array.isArray(item.itemListElement)) {
         steps.push(...normalizeInstructions(item.itemListElement));
       } else if (item.text) {
-        steps.push(decodeEntities(item.text.trim()));
+        const text = decodeEntities(item.text.trim());
+        if (text) steps.push({ text, image: extractImage(item.image) });
       }
     }
-    rawSteps = steps.filter(Boolean);
+    rawSteps = steps;
   }
 
   // Many recipe sites cram several actions into one long instruction paragraph.
-  // Break those up into shorter, more scannable sub-steps.
+  // Break those up into shorter, more scannable sub-steps. Only the first
+  // resulting chunk keeps the step's image, so it doesn't repeat on every
+  // sub-step split from the same original instruction.
   const expanded = [];
   for (const step of rawSteps) {
-    expanded.push(...splitLongStep(step));
+    const chunks = splitLongStep(step.text);
+    chunks.forEach((text, i) => {
+      expanded.push({ text, image: i === 0 ? step.image : null });
+    });
   }
   return expanded;
 }
@@ -255,7 +266,7 @@ function splitLongStep(text, targetLen = 140) {
 /* ----- Match ingredients inline within each step's text ----- */
 const STOPWORDS = new Set(['of', 'and', 'to', 'taste', 'the', 'a', 'an', 'or', 'plus']);
 
-function buildStepParts(stepText, ingredients) {
+function buildStepParts(stepText, ingredients, image = null) {
   const timer = extractTimer(stepText);
 
   const matchers = ingredients
@@ -299,7 +310,7 @@ function buildStepParts(stepText, ingredients) {
     remaining = remaining.slice(earliestIdx + earliestLen);
   }
 
-  return { parts, timer, rawText: stepText };
+  return { parts, timer, rawText: stepText, image };
 }
 
 // Builds a list of match candidates for an ingredient name, ordered from most
