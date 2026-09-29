@@ -353,6 +353,11 @@ function buildStepParts(stepText, ingredients) {
   return { parts, timer, rawText: stepText };
 }
 
+// Every individual word is a candidate, not just the last one — recipe
+// steps sometimes refer to an ingredient by its generic noun ("the butter"
+// for "unsalted butter") and sometimes by its distinctive/brand-like word
+// instead ("Worcestershire" or "Dijon" for "Worcestershire sauce" / "Dijon
+// mustard"), so both directions need to be checked.
 function keywordCandidates(name) {
   const cleaned = name
     .replace(/\b(fresh|freshly|chopped|minced|sliced|diced|softened|melted|grated|packed|large|small|medium|whole|room temperature|optional|to taste|cracked|granulated|unsalted|salted)\b/gi, '')
@@ -368,11 +373,12 @@ function keywordCandidates(name) {
 
   if (cleaned.length > 2) candidates.add(cleaned);
   if (words.length >= 2) candidates.add(words.slice(-2).join(' '));
-  if (words.length >= 1) {
-    const last = words[words.length - 1];
-    if (last.length > 2) candidates.add(last);
+  for (const w of words) {
+    if (w.length > 2) candidates.add(w);
   }
 
+  // Longest first so we prefer the most specific (multi-word) match when
+  // one is present, falling back to single distinctive words otherwise.
   return Array.from(candidates).sort((a, b) => b.length - a.length);
 }
 
